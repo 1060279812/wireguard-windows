@@ -8,7 +8,7 @@ package manager
 import (
 	"sync"
 
-	"golang.zx2c4.com/wireguard/windows/driver"
+	"github.com/1060279812/wireguard/windows/driver"
 )
 
 type lockedDriverAdapter struct {

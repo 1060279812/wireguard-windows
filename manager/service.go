@@ -15,14 +15,14 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/1060279812/wireguard/windows/driver"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
-	"golang.zx2c4.com/wireguard/windows/driver"
 
-	"golang.zx2c4.com/wireguard/windows/conf"
-	"golang.zx2c4.com/wireguard/windows/elevate"
-	"golang.zx2c4.com/wireguard/windows/ringlogger"
-	"golang.zx2c4.com/wireguard/windows/services"
+	"github.com/1060279812/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/elevate"
+	"github.com/1060279812/wireguard/windows/ringlogger"
+	"github.com/1060279812/wireguard/windows/services"
 )
 
 type managerService struct{}

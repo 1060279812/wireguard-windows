@@ -15,9 +15,9 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"golang.zx2c4.com/wireguard/windows/elevate"
-	"golang.zx2c4.com/wireguard/windows/updater/winhttp"
-	"golang.zx2c4.com/wireguard/windows/version"
+	"github.com/1060279812/wireguard/windows/elevate"
+	"github.com/1060279812/wireguard/windows/updater/winhttp"
+	"github.com/1060279812/wireguard/windows/version"
 )
 
 type DownloadProgress struct {

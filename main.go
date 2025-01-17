@@ -18,15 +18,15 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"golang.zx2c4.com/wireguard/windows/conf"
-	"golang.zx2c4.com/wireguard/windows/driver"
-	"golang.zx2c4.com/wireguard/windows/elevate"
-	"golang.zx2c4.com/wireguard/windows/l18n"
-	"golang.zx2c4.com/wireguard/windows/manager"
-	"golang.zx2c4.com/wireguard/windows/ringlogger"
-	"golang.zx2c4.com/wireguard/windows/tunnel"
-	"golang.zx2c4.com/wireguard/windows/ui"
-	"golang.zx2c4.com/wireguard/windows/updater"
+	"github.com/1060279812/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/driver"
+	"github.com/1060279812/wireguard/windows/elevate"
+	"github.com/1060279812/wireguard/windows/l18n"
+	"github.com/1060279812/wireguard/windows/manager"
+	"github.com/1060279812/wireguard/windows/ringlogger"
+	"github.com/1060279812/wireguard/windows/tunnel"
+	"github.com/1060279812/wireguard/windows/ui"
+	"github.com/1060279812/wireguard/windows/updater"
 )
 
 func setLogFile() {

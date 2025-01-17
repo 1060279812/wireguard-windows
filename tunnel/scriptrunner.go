@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"golang.zx2c4.com/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/conf"
 )
 
 func runScriptCommand(command, interfaceName string) error {

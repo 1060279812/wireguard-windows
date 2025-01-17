@@ -15,8 +15,8 @@ import (
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/sys/windows"
 
-	"golang.zx2c4.com/wireguard/windows/conf"
-	"golang.zx2c4.com/wireguard/windows/tunnel"
+	"github.com/1060279812/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/tunnel"
 )
 
 /**

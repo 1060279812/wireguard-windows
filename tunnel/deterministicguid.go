@@ -15,7 +15,7 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.org/x/text/unicode/norm"
 
-	"golang.zx2c4.com/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/conf"
 )
 
 const (

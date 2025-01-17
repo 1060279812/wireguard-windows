@@ -11,10 +11,10 @@ import (
 	"time"
 	"unsafe"
 
-	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
+	"github.com/1060279812/wireguard/windows/tunnel/winipcfg"
 
+	"github.com/1060279812/wireguard/windows/services"
 	"golang.org/x/sys/windows"
-	"golang.zx2c4.com/wireguard/windows/services"
 )
 
 //sys	internetGetConnectedState(flags *uint32, reserved uint32) (connected bool) = wininet.InternetGetConnectedState

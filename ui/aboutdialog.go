@@ -9,13 +9,13 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/1060279812/wireguard/windows/driver"
 	"github.com/lxn/walk"
 	"github.com/lxn/win"
 	"golang.org/x/sys/windows"
-	"golang.zx2c4.com/wireguard/windows/driver"
 
-	"golang.zx2c4.com/wireguard/windows/l18n"
-	"golang.zx2c4.com/wireguard/windows/version"
+	"github.com/1060279812/wireguard/windows/l18n"
+	"github.com/1060279812/wireguard/windows/version"
 )
 
 var (

@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 
-	"golang.zx2c4.com/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/conf"
 )
 
 var cachedServiceManager *mgr.Mgr

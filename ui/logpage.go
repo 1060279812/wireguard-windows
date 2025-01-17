@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/1060279812/wireguard/windows/l18n"
+	"github.com/1060279812/wireguard/windows/ringlogger"
 	"github.com/lxn/walk"
-	"golang.zx2c4.com/wireguard/windows/l18n"
-	"golang.zx2c4.com/wireguard/windows/ringlogger"
 )
 
 const (

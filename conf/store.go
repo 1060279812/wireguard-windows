@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"golang.zx2c4.com/wireguard/windows/conf/dpapi"
+	"github.com/1060279812/wireguard/windows/conf/dpapi"
 )
 
 const (

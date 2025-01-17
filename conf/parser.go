@@ -14,8 +14,8 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.org/x/text/encoding/unicode"
 
-	"golang.zx2c4.com/wireguard/windows/driver"
-	"golang.zx2c4.com/wireguard/windows/l18n"
+	"github.com/1060279812/wireguard/windows/driver"
+	"github.com/1060279812/wireguard/windows/l18n"
 )
 
 type ParseError struct {

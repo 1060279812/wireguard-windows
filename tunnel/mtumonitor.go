@@ -6,8 +6,8 @@
 package tunnel
 
 import (
+	"github.com/1060279812/wireguard/windows/tunnel/winipcfg"
 	"golang.org/x/sys/windows"
-	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
 
 func findDefaultLUID(family winipcfg.AddressFamily, ourLUID winipcfg.LUID, lastLUID *winipcfg.LUID, lastIndex *uint32) error {

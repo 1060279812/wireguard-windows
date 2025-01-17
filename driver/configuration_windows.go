@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/1060279812/wireguard/windows/tunnel/winipcfg"
 	"golang.org/x/sys/windows"
-	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
 
 type AdapterState uint32

@@ -17,9 +17,9 @@ import (
 
 	"github.com/lxn/walk"
 
-	"golang.zx2c4.com/wireguard/windows/conf"
-	"golang.zx2c4.com/wireguard/windows/l18n"
-	"golang.zx2c4.com/wireguard/windows/manager"
+	"github.com/1060279812/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/l18n"
+	"github.com/1060279812/wireguard/windows/manager"
 )
 
 type TunnelsPage struct {

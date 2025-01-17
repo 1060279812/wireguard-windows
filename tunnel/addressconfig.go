@@ -11,11 +11,11 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/1060279812/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/services"
+	"github.com/1060279812/wireguard/windows/tunnel/firewall"
+	"github.com/1060279812/wireguard/windows/tunnel/winipcfg"
 	"golang.org/x/sys/windows"
-	"golang.zx2c4.com/wireguard/windows/conf"
-	"golang.zx2c4.com/wireguard/windows/services"
-	"golang.zx2c4.com/wireguard/windows/tunnel/firewall"
-	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
 
 func cleanupAddressesOnDisconnectedInterfaces(family winipcfg.AddressFamily, addresses []netip.Prefix) {
