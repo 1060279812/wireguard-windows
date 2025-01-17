@@ -1,4 +1,4 @@
-module golang.zx2c4.com/wireguard/windows
+module github.com/1060279812/wireguard/windows
 
 go 1.18
 
