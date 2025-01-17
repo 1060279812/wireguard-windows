@@ -21,9 +21,9 @@ func fastrandn(n uint32) uint32
 type UpdateState uint32
 
 const (
-	UpdateStateUnknown UpdateState = iota
-	UpdateStateFoundUpdate
-	UpdateStateUpdatesDisabledUnofficialBuild
+	UpdateStateUnknown                        UpdateState = iota //更新状态未知。初始化时的默认状态。
+	UpdateStateFoundUpdate                                       //已找到更新。用于通知系统或用户有新版本可用。
+	UpdateStateUpdatesDisabledUnofficialBuild                    //由于当前构建不是官方版本，更新被禁用。通常用于开发或测试版本。
 )
 
 var updateState = UpdateStateUnknown

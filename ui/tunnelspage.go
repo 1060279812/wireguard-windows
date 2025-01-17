@@ -457,11 +457,16 @@ func (tp *TunnelsPage) onEditTunnel() {
 	if config := runEditDialog(tp.Form(), tunnel); config != nil {
 		go func() {
 			priorState, err := tunnel.State()
-			tunnel.Delete()
-			tunnel.WaitForStop()
-			tunnel, err2 := manager.IPCClientNewTunnel(config)
+			tunnel.Delete()                                    //删除原有隧道，后面重新添加
+			tunnel.WaitForStop()                               //等待隧道暂停
+			tunnel, err2 := manager.IPCClientNewTunnel(config) //重新初始化一个新的隧道，最终操作在store.go->Save(overwrite bool) -> Config写入.conf.dpapi
 			if err == nil && err2 == nil && (priorState == manager.TunnelStarting || priorState == manager.TunnelStarted) {
+				//if err == nil && (priorState == manager.TunnelStarting || priorState == manager.TunnelStarted) {
 				tunnel.Start()
+				//调用栈
+				// ipc_server.go->Start(tunnelName string)
+				// install.go ->InstallTunnel() 读取configPath，创建并启动windows服务 -> trackTunnelService(tunnelName string, service *mgr.Service)
+				// 注：编辑->保存->提示：Tunnel service tracker finished
 			}
 		}()
 	}

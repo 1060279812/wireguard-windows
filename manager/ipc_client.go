@@ -32,29 +32,29 @@ const (
 type NotificationType int
 
 const (
-	TunnelChangeNotificationType NotificationType = iota
-	TunnelsChangeNotificationType
-	ManagerStoppingNotificationType
-	UpdateFoundNotificationType
-	UpdateProgressNotificationType
+	TunnelChangeNotificationType    NotificationType = iota //当某个隧道的状态发生变化时（例如，隧道启动、停止、错误等），会发送这种类型的通知。
+	TunnelsChangeNotificationType                           //当隧道列表发生变化时（例如，添加或删除隧道），会发送这种类型的通知。
+	ManagerStoppingNotificationType                         //当管理服务即将停止时，会发送这种类型的通知。
+	UpdateFoundNotificationType                             //当找到更新时，会发送这种类型的通知。
+	UpdateProgressNotificationType                          //当更新过程中有进度变化时，会发送这种类型的通知。
 )
 
 type MethodType int
 
 const (
-	StoredConfigMethodType MethodType = iota
-	RuntimeConfigMethodType
-	StartMethodType
-	StopMethodType
-	WaitForStopMethodType
-	DeleteMethodType
-	StateMethodType
-	GlobalStateMethodType
-	CreateMethodType
-	TunnelsMethodType
-	QuitMethodType
-	UpdateStateMethodType
-	UpdateMethodType
+	StoredConfigMethodType  MethodType = iota //获取存储的隧道配置。
+	RuntimeConfigMethodType                   //获取运行时隧道配置。
+	StartMethodType                           //启动隧道。
+	StopMethodType                            //停止隧道。
+	WaitForStopMethodType                     //等待隧道停止。
+	DeleteMethodType                          //删除隧道。
+	StateMethodType                           //获取隧道状态。
+	GlobalStateMethodType                     //获取全局状态。
+	CreateMethodType                          //创建新隧道。
+	TunnelsMethodType                         //获取所有隧道信息。
+	QuitMethodType                            //退出管理器。
+	UpdateStateMethodType                     //更新状态。
+	UpdateMethodType                          //执行更新操作。
 )
 
 var (

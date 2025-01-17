@@ -114,6 +114,9 @@ func UninstallManager() error {
 	return err2
 }
 
+/**
+ * 启动tunnelService、安装wireguard.sys驱动
+ */
 func InstallTunnel(configPath string) error {
 	m, err := serviceManager()
 	if err != nil {
@@ -159,6 +162,7 @@ func InstallTunnel(configPath string) error {
 		}
 	}
 
+	//配置wireguard 服务信息
 	config := mgr.Config{
 		ServiceType:  windows.SERVICE_WIN32_OWN_PROCESS,
 		StartType:    mgr.StartAutomatic,

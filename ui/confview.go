@@ -587,6 +587,9 @@ func (cv *ConfView) Dispose() {
 	cv.ScrollView.Dispose()
 }
 
+/**
+ * 连接按钮
+ */
 func (cv *ConfView) onToggleActiveClicked() {
 	cv.interfaze.toggleActive.button.SetEnabled(false)
 	go func() {

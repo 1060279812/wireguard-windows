@@ -68,7 +68,7 @@ type Interface struct {
 	ListenPort uint16
 	PrivateKey [32]byte
 	PublicKey  [32]byte
-	PeerCount  uint32
+	PeerCount  uint32 //peer数量
 	_          [4]byte
 }
 

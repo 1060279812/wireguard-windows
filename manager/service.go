@@ -28,11 +28,13 @@ import (
 type managerService struct{}
 
 func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (svcSpecificEC bool, exitCode uint32) {
+	// 将服务状态设置为启动中
 	changes <- svc.Status{State: svc.StartPending}
 
 	var err error
 	serviceError := services.ErrorSuccess
 
+	// 确保服务退出时处理错误并更新状态
 	defer func() {
 		svcSpecificEC, exitCode = services.DetermineErrorCode(err, serviceError)
 		logErr := services.CombineErrors(err, serviceError)
@@ -41,7 +43,7 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 		}
 		changes <- svc.Status{State: svc.StopPending}
 	}()
-
+	// 初始化日志文件
 	var logFile string
 	logFile, err = conf.LogFile(true)
 	if err != nil {
@@ -55,19 +57,28 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 	}
 
 	services.PrintStarting()
-
+	// 获取可执行文件路径
 	path, err := os.Executable()
 	if err != nil {
 		serviceError = services.ErrorDetermineExecutablePath
 		return
 	}
 
+	// 监视新的隧道服务
 	err = watchNewTunnelServices()
 	if err != nil {
 		serviceError = services.ErrorTrackTunnels
 		return
 	}
 
+	/**
+	    conf.RegisterStoreChangeCallback() 监听文件目录如：C:\Users\GL\AppData\Local\Temp\wg_2334.tmp.conf wg配置文件变化,执行相应操作
+	    conf.MigrateUnencryptedConfigs()
+		   1.检查配置文件： 它会扫描当前的配置存储，查找未加密的配置。
+		   2.迁移配置： 它将这些未加密的配置迁移到新的、加密的配置格式中。这通常涉及到对配置文件进行重写，将敏感数据加密存储。
+	    changeTunnelServiceConfigFilePath() 代表配置文件路径或配置文件的位置，迁移操作会在此路径下的文件上执行。这个路径指向 WireGuard 用于存储隧道服务配置的文件，通常是 .conf 格式的文件。
+		      作用： 在执行迁移时，changeTunnelServiceConfigFilePath 指定了要操作的配置文件的位置，迁移操作会根据这个路径将未加密的配置迁移到新的文件或格式中。
+	*/
 	conf.RegisterStoreChangeCallback(func() { conf.MigrateUnencryptedConfigs(changeTunnelServiceConfigFilePath) })
 	conf.RegisterStoreChangeCallback(IPCServerNotifyTunnelsChange)
 
@@ -77,6 +88,7 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 	stoppingManager := false
 	operatorGroupSid, _ := windows.CreateWellKnownSid(windows.WinBuiltinNetworkConfigurationOperatorsSid)
 
+	// 启动 UI 进程函数
 	startProcess := func(session uint32) {
 		defer func() {
 			runtime.UnlockOSThread()

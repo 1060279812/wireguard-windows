@@ -29,6 +29,7 @@ type tunnelService struct {
 }
 
 func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (svcSpecificEC bool, exitCode uint32) {
+	// 设置服务状态为启动中
 	serviceState := svc.StartPending
 	changes <- svc.Status{State: serviceState}
 
@@ -39,6 +40,7 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 	var err error
 	serviceError := services.ErrorSuccess
 
+	// 延迟执行的函数，用于处理服务停止时的清理工作
 	defer func() {
 		svcSpecificEC, exitCode = services.DetermineErrorCode(err, serviceError)
 		logErr := services.CombineErrors(err, serviceError)
@@ -95,7 +97,7 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 		stopIt <- true
 		log.Println("Shutting down")
 	}()
-
+	// 初始化日志文件
 	var logFile string
 	logFile, err = conf.LogFile(true)
 	if err != nil {
@@ -107,7 +109,7 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 		serviceError = services.ErrorRingloggerOpen
 		return
 	}
-
+	// 加载配置文件
 	config, err = conf.LoadFromPath(service.Path)
 	if err != nil {
 		serviceError = services.ErrorLoadConfiguration
@@ -119,6 +121,7 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 
 	services.PrintStarting()
 
+	// 如果是在系统启动时启动的服务，检查 SCM 锁定状态以防止死锁
 	if services.StartedAtBoot() {
 		if m, err := mgr.Connect(); err == nil {
 			if lockStatus, err := m.LockStatus(); err == nil && lockStatus.IsLocked {
@@ -127,6 +130,11 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 				 * Windows 8.1 locks the SCM for each service start, creating a deadlock if we don't
 				 * announce that we're running before starting additional services.
 				 */
+				/* 如果不这样做，那么驱动程序安装将永远阻塞，
+				 * 因为安装网络适配器也会启动驱动程序服务。
+				 * 显然在启动时，Windows 8.1 会锁定 SCM 以启动每个服务，
+				 * 如果不在启动其他服务之前宣布我们正在运行，就会造成死锁。
+				 */
 				log.Printf("SCM locked for %v by %s, marking service as started", lockStatus.Age, lockStatus.Owner)
 				serviceState = svc.Running
 				changes <- svc.Status{State: serviceState}
@@ -134,23 +142,24 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 			m.Disconnect()
 		}
 	}
-
+	// 评估静态陷阱
 	evaluateStaticPitfalls()
 
+	// 监视网络接口
 	log.Println("Watching network interfaces")
 	watcher, err = watchInterface()
 	if err != nil {
 		serviceError = services.ErrorSetNetConfig
 		return
 	}
-
+	// 解析 DNS 名称
 	log.Println("Resolving DNS names")
 	err = config.ResolveEndpoints()
 	if err != nil {
 		serviceError = services.ErrorDNSLookup
 		return
 	}
-
+	// 创建网络适配器
 	log.Println("Creating network adapter")
 	for i := 0; i < 15; i++ {
 		if i > 0 {
@@ -180,26 +189,26 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 		serviceError = services.ErrorCreateNetworkAdapter
 		return
 	}
-
+	// 运行 PreUp 脚本
 	err = runScriptCommand(config.Interface.PreUp, config.Name)
 	if err != nil {
 		serviceError = services.ErrorRunScript
 		return
 	}
-
+	// 启用防火墙
 	err = enableFirewall(config, luid)
 	if err != nil {
 		serviceError = services.ErrorFirewall
 		return
 	}
-
+	// 降低权限
 	log.Println("Dropping privileges")
 	err = elevate.DropAllPrivileges(true)
 	if err != nil {
 		serviceError = services.ErrorDropPrivileges
 		return
 	}
-
+	// 设置接口配置
 	log.Println("Setting interface configuration")
 	err = adapter.SetConfiguration(config.ToDriverConfiguration())
 	if err != nil {
@@ -212,13 +221,13 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 		return
 	}
 	watcher.Configure(adapter, config, luid)
-
+	// 运行 PostUp 脚本
 	err = runScriptCommand(config.Interface.PostUp, config.Name)
 	if err != nil {
 		serviceError = services.ErrorRunScript
 		return
 	}
-
+	// 更新服务状态为运行中
 	changes <- svc.Status{State: serviceState, Accepts: svc.AcceptStop | svc.AcceptShutdown}
 
 	var started bool
