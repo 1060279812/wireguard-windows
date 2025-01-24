@@ -109,6 +109,9 @@ func (config *Config) ToDriverConfiguration() (*driver.Interface, uint32) {
 		if !config.Peers[i].PresharedKey.IsZero() {
 			flags |= driver.PeerHasPresharedKey
 		}
+		//if config.Peers[i].Flags > 0 {
+		//flags |= config.Peers[i].Flags
+		//}
 		var endpoint winipcfg.RawSockaddrInet
 		if !config.Peers[i].Endpoint.IsEmpty() {
 			addr, err := netip.ParseAddr(config.Peers[i].Endpoint.Host)

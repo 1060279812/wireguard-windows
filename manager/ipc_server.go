@@ -129,54 +129,98 @@ func (s *ManagerService) StoredConfig(tunnelName string) (*conf.Config, error) {
 //PersistentKeepalive = 25
 
 //[Peer]
-//PublicKey = aBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
+//PublicKey = fBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
 //AllowedIPs = 0.0.0.0/0, ::/0
 //Endpoint = 192.168.117.111:51820
 //PersistentKeepalive = 25
 
 //[Peer]
-//PublicKey = cBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
+//PublicKey = gBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
 //AllowedIPs = 1.25.25.28/0, ::/0
 //Endpoint = 192.168.117.222:51820
 //PersistentKeepalive = 25
 
+//[Peer]
+//PublicKey = hBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
+//AllowedIPs = 1.25.25.28/0, ::/0
+//Endpoint = 192.168.117.333:51820
+//PersistentKeepalive = 25
+
+//func (s *ManagerService) RuntimeConfig(tunnelName string) (*conf.Config, error) {
+//	// 加载存储的配置
+//	storedConfig, err := conf.LoadFromName(tunnelName)
+//	if err != nil {
+//		return nil, err
+//	}
+//	// 查找与指定 tunnel 关联的驱动适配器
+//	driverAdapter, err := findDriverAdapter(tunnelName)
+//	if err != nil {
+//		return nil, err
+//	}
+//	// 获取驱动适配器的运行时配置
+//	runtimeConfig, err := driverAdapter.Configuration()
+//	if err != nil {
+//		driverAdapter.Unlock()
+//		releaseDriverAdapter(tunnelName)
+//		return nil, err
+//	}
+//	// 将运行时配置和存储的配置合并
+//	conf := conf.FromDriverConfiguration2(runtimeConfig, storedConfig)
+//	configuration, _ := conf.ToDriverConfiguration()
+//	err = driverAdapter.SetConfiguration(conf.ToDriverConfiguration())
+//	if err != nil {
+//		log.Println("RuntimeConfig() err")
+//		driverAdapter.Unlock()
+//		releaseDriverAdapter(tunnelName)
+//		return nil, err
+//	}
+//	driverAdapter.Unlock()
+//
+//	log.Printf("RuntimeConfig() runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
+//	log.Printf("RuntimeConfig() storedConfig peer size=%d\n", len(storedConfig.Peers))
+//	log.Printf("RuntimeConfig() configuration peer size=%d\n", configuration.PeerCount)
+//	log.Printf("RuntimeConfig() conf peer size=%d\n", len(conf.Peers))
+//
+//	// 如果没有提升权限，则对配置进行脱敏处理
+//	if s.elevatedToken == 0 {
+//		storedConfig.Redact()
+//	}
+//	return storedConfig, nil
+//}
+
 func (s *ManagerService) RuntimeConfig(tunnelName string) (*conf.Config, error) {
-	// 加载存储的配置
 	storedConfig, err := conf.LoadFromName(tunnelName)
 	if err != nil {
 		return nil, err
 	}
-	// 查找与指定 tunnel 关联的驱动适配器
 	driverAdapter, err := findDriverAdapter(tunnelName)
 	if err != nil {
 		return nil, err
 	}
-	// 获取驱动适配器的运行时配置
 	runtimeConfig, err := driverAdapter.Configuration()
 	if err != nil {
 		driverAdapter.Unlock()
 		releaseDriverAdapter(tunnelName)
 		return nil, err
 	}
-	// 将运行时配置和存储的配置合并
-	conf := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
-	err = driverAdapter.SetConfiguration(conf.ToDriverConfiguration())
-	if err != nil {
-		log.Println("RuntimeConfig() err")
-		driverAdapter.Unlock()
-		releaseDriverAdapter(tunnelName)
-		return nil, err
-	}
+	conf := conf.FromDriverConfiguration2(runtimeConfig, storedConfig)
 	driverAdapter.Unlock()
-
-	log.Printf("RuntimeConfig() runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
-	log.Printf("RuntimeConfig() storedConfig peer size=%d\n", len(storedConfig.Peers))
-	log.Printf("RuntimeConfig() conf peer size=%d\n", len(conf.Peers))
-
-	// 如果没有提升权限，则对配置进行脱敏处理
 	if s.elevatedToken == 0 {
 		conf.Redact()
 	}
+
+	// 立即将配置同步到 wireguard-nt
+	if err := driverAdapter.SetConfiguration(conf.ToDriverConfiguration()); err != nil {
+		return nil, err
+	}
+	//configuration, _ := conf.ToDriverConfiguration()
+
+	//log.Printf("RuntimeConfig() runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
+	//log.Printf("RuntimeConfig() storedConfig peer size=%d\n", len(storedConfig.Peers))
+	//log.Printf("RuntimeConfig() configuration peer size=%d\n", configuration.PeerCount)
+	//log.Printf("RuntimeConfig() conf peer size=%d\n", len(conf.Peers))
+	//log.Printf("RuntimeConfig() conf peer size=%d\n", configuration.)
+
 	return storedConfig, nil
 }
 
