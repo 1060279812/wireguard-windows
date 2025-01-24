@@ -9,17 +9,16 @@ import (
 	"archive/zip"
 	"errors"
 	"fmt"
+	"github.com/1060279812/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/l18n"
+	"github.com/1060279812/wireguard/windows/manager"
+	"github.com/lxn/walk"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/lxn/walk"
-
-	"github.com/1060279812/wireguard/windows/conf"
-	"github.com/1060279812/wireguard/windows/l18n"
-	"github.com/1060279812/wireguard/windows/manager"
 )
 
 type TunnelsPage struct {
@@ -448,25 +447,74 @@ func (tp *TunnelsPage) onTunnelsViewItemActivated() {
 	}()
 }
 
+//[Peer]
+//PublicKey = eBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
+//AllowedIPs = 1.25.25.28/0, ::/0
+//Endpoint = 192.168.117.114:51820
+//PersistentKeepalive = 25
+
+//[Peer]
+//PublicKey = aBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
+//AllowedIPs = 0.0.0.0/0, ::/0
+//Endpoint = 192.168.117.111:51820
+//PersistentKeepalive = 25
+
+//[Peer]
+//PublicKey = cBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
+//AllowedIPs = 1.25.25.28/0, ::/0
+//Endpoint = 192.168.117.222:51820
+//PersistentKeepalive = 25
+
 func (tp *TunnelsPage) onEditTunnel() {
+	log.Println("--------onEditTunnel -> RuntimeConfig()")
 	tunnel := tp.listView.CurrentTunnel()
 	if tunnel == nil {
 		return
 	}
 
+	//if config := runEditDialog(tp.Form(), tunnel); config != nil {
+	//	go func() {
+	//		priorState, err := tunnel.State()
+	//		tunnel.Delete()                                    //删除原有隧道，后面重新添加
+	//		tunnel.WaitForStop()                               //等待隧道暂停
+	//		tunnel, err2 := manager.IPCClientNewTunnel(config) //重新初始化一个新的隧道，最终操作在store.go->Save(overwrite bool) -> Config写入.conf.dpapi
+	//		if err == nil && err2 == nil && (priorState == manager.TunnelStarting || priorState == manager.TunnelStarted) {
+	//			tunnel.Start()
+	//			//调用栈
+	//			// ipc_server.go->Start(tunnelName string)
+	//			// install.go ->InstallTunnel() 读取configPath，创建并启动windows服务 -> trackTunnelService(tunnelName string, service *mgr.Service)
+	//			// 注：编辑->保存->提示：Tunnel service tracker finished
+	//		}
+	//	}()
+	//}
+
 	if config := runEditDialog(tp.Form(), tunnel); config != nil {
 		go func() {
 			priorState, err := tunnel.State()
-			tunnel.Delete()                                    //删除原有隧道，后面重新添加
-			tunnel.WaitForStop()                               //等待隧道暂停
-			tunnel, err2 := manager.IPCClientNewTunnel(config) //重新初始化一个新的隧道，最终操作在store.go->Save(overwrite bool) -> Config写入.conf.dpapi
-			if err == nil && err2 == nil && (priorState == manager.TunnelStarting || priorState == manager.TunnelStarted) {
-				//if err == nil && (priorState == manager.TunnelStarting || priorState == manager.TunnelStarted) {
-				tunnel.Start()
-				//调用栈
-				// ipc_server.go->Start(tunnelName string)
-				// install.go ->InstallTunnel() 读取configPath，创建并启动windows服务 -> trackTunnelService(tunnelName string, service *mgr.Service)
-				// 注：编辑->保存->提示：Tunnel service tracker finished
+			//if err == nil && (priorState == manager.TunnelStarting || priorState == manager.TunnelStarted) {
+			if err == nil {
+
+				// If the tunnel was started, make sure it remains started without restarting
+				if priorState == manager.TunnelStarted || priorState == manager.TunnelStarting {
+					// Do nothing, as the update should be applied without restarting
+				}
+
+				//不实际创建新的tunnel，只是间接调用下Save()将当前更改后的配置保存到本地
+				_, err := manager.IPCClientNewTunnel(config)
+				if err != nil {
+					return
+				}
+				//config, err := tunnel.UpdateConfig(config)
+				//config, err := tunnel.RuntimeConfig()
+				//if err != nil {
+				//	return
+				//}
+				//if config.Name == "" {
+				//	config, _ = tunnel.StoredConfig()
+				//}
+				//tp.confView.Synchronize(func() {
+				//	tp.confView.setTunnel(&tunnel, config, priorState)
+				//})
 			}
 		}()
 	}

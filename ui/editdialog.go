@@ -40,7 +40,6 @@ func runEditDialog(owner walk.Form, tunnel *manager.Tunnel) *conf.Config {
 	if dlg.Run() == walk.DlgCmdOK {
 		return &dlg.config
 	}
-
 	return nil
 }
 

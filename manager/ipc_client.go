@@ -44,6 +44,7 @@ type MethodType int
 const (
 	StoredConfigMethodType  MethodType = iota //获取存储的隧道配置。
 	RuntimeConfigMethodType                   //获取运行时隧道配置。
+	UpdateConfigMethodType                    //获取运行时隧道配置。
 	StartMethodType                           //启动隧道。
 	StopMethodType                            //停止隧道。
 	WaitForStopMethodType                     //等待隧道停止。
@@ -479,4 +480,28 @@ func IPCClientRegisterUpdateProgress(cb func(dp updater.DownloadProgress)) *Upda
 
 func (cb *UpdateProgressCallback) Unregister() {
 	delete(updateProgressCallbacks, cb)
+}
+
+func (t *Tunnel) UpdateConfig(config *conf.Config) (c conf.Config, err error) {
+	rpcMutex.Lock()
+	defer rpcMutex.Unlock()
+
+	err = rpcEncoder.Encode(UpdateConfigMethodType)
+	if err != nil {
+		return
+	}
+	err = rpcEncoder.Encode(t.Name)
+	if err != nil {
+		return
+	}
+	err = rpcEncoder.Encode(config)
+	if err != nil {
+		return
+	}
+	err = rpcDecoder.Decode(&c)
+	if err != nil {
+		return
+	}
+	err = rpcDecodeError()
+	return
 }

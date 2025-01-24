@@ -265,5 +265,5 @@ func Run(confPath string) error {
 	if err != nil {
 		return err
 	}
-	return svc.Run(serviceName, &tunnelService{confPath})
+	return svc.Run(serviceName, &tunnelService{confPath}) //最终会调用Execute()
 }
