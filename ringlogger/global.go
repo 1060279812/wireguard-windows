@@ -23,6 +23,7 @@ func InitGlobalLogger(file, tag string) error {
 	}
 	log.SetOutput(Global)
 	log.SetFlags(0)
+
 	overrideWrite = globalWrite
 	return nil
 }

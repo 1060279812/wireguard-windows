@@ -8,6 +8,7 @@ package manager
 import (
 	"encoding/gob"
 	"errors"
+	"log"
 	"os"
 	"sync"
 
@@ -95,6 +96,7 @@ type UpdateProgressCallback struct {
 var updateProgressCallbacks = make(map[*UpdateProgressCallback]bool)
 
 func InitializeIPCClient(reader, writer, events *os.File) {
+	log.Printf("------------InitializeIPCClient() start----------")
 	rpcDecoder = gob.NewDecoder(reader)
 	rpcEncoder = gob.NewEncoder(writer)
 	go func() {
@@ -357,19 +359,28 @@ func IPCClientGlobalState() (tunnelState TunnelState, err error) {
 func IPCClientNewTunnel(conf *conf.Config) (tunnel Tunnel, err error) {
 	rpcMutex.Lock()
 	defer rpcMutex.Unlock()
-
+	log.Printf("------------IPCClientNewTunnel start----------")
+	if rpcEncoder == nil {
+		log.Printf("------------IPCClientNewTunnel rpcEncoder == nil----------")
+	} else {
+		log.Printf("------------IPCClientNewTunnel rpcEncoder != nil----------")
+	}
 	err = rpcEncoder.Encode(CreateMethodType)
 	if err != nil {
+		log.Printf("------------IPCClientNewTunnel err1111----------")
 		return
 	}
 	err = rpcEncoder.Encode(*conf)
 	if err != nil {
+		log.Printf("------------IPCClientNewTunnel err2222----------")
 		return
 	}
 	err = rpcDecoder.Decode(&tunnel)
 	if err != nil {
+		log.Printf("------------IPCClientNewTunnel err3333----------")
 		return
 	}
+	log.Printf("------------IPCClientNewTunnel end----------")
 	err = rpcDecodeError()
 	return
 }

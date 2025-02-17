@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package proto;
+
+// 添加 go_package 选项
+option go_package = "github.com/1060279812/wireguard/windows/manager/grpc/proto";
+
+// 定义 gRPC 服务
+service CommunicationService {
+  rpc Chat (stream MessageRequest) returns (stream MessageResponse); // 双向流
+}
+
+// 定义消息请求消息体
+message MessageRequest {
+  string json_message = 1;
+}
+
+// 定义消息响应消息体
+message MessageResponse {
+  string json_message = 1;
+}

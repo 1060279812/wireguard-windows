@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/1060279812/wireguard/windows/services"
 	"io"
 	"log"
 	"os"
@@ -16,11 +17,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/1060279812/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/driver"
+	"github.com/1060279812/wireguard/windows/updater"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
-
-	"github.com/1060279812/wireguard/windows/conf"
-	"github.com/1060279812/wireguard/windows/updater"
 )
 
 var (
@@ -47,92 +48,56 @@ func (s *ManagerService) StoredConfig(tunnelName string) (*conf.Config, error) {
 	return conf, nil
 }
 
-//func (s *ManagerService) RuntimeConfig(tunnelName string) (*conf.Config, error) {
-//	// 加载存储的配置
-//	storedConfig, err := conf.LoadFromName(tunnelName)
-//	if err != nil {
-//		return nil, err
-//	}
-//	// 查找与指定 tunnel 关联的驱动适配器
-//	driverAdapter, err := findDriverAdapter(tunnelName)
-//	if err != nil {
-//		return nil, err
-//	}
-//	// 获取驱动适配器的运行时配置
-//	runtimeConfig, err := driverAdapter.Configuration()
-//	if err != nil {
-//		driverAdapter.Unlock()
-//		releaseDriverAdapter(tunnelName)
-//		return nil, err
-//	}
-//	// 将运行时配置和存储的配置合并
-//	conf := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
-//	driverAdapter.Unlock()
-//
-//	log.Printf("RuntimeConfig() runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
-//	log.Printf("RuntimeConfig() storedConfig peer size=%d\n", len(storedConfig.Peers))
-//	log.Printf("RuntimeConfig() conf peer size=%d\n", len(conf.Peers))
-//	log.Printf("RuntimeConfig() conf=%s\n", conf.ToWgQuick())
-//
-//	// 如果没有提升权限，则对配置进行脱敏处理
-//	if s.elevatedToken == 0 {
-//		conf.Redact()
-//	}
-//	return conf, nil
-//}
+// [Interface]
+// PrivateKey = YBOWHj8CGt2jfYzxUw+LPISkoU7GBMC2P/ys0a1LB2k=
+// Address = 10.1.7.3/24
+// MTU = 1420
 
-//func (s *ManagerService) UpdateConfig(tunnelName string, storedConfig *conf.Config) (*conf.Config, error) {
-//	// 加载存储的配置
-//	storedConfig, err := conf.LoadFromName(tunnelName)
-//	if err != nil {
-//		return nil, err
-//	}
-//	// 查找与指定 tunnel 关联的驱动适配器
-//	driverAdapter, err := findDriverAdapter(tunnelName)
-//	if err != nil {
-//		return nil, err
-//	}
-//	// 获取驱动适配器的运行时配置
-//	runtimeConfig, err := driverAdapter.Configuration()
-//	if err != nil {
-//		driverAdapter.Unlock()
-//		releaseDriverAdapter(tunnelName)
-//		return nil, err
-//	}
-//
-//	// 将运行时配置和存储的配置合并
-//	conf := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
-//	err = driverAdapter.SetConfiguration(conf.ToDriverConfiguration())
-//	if err != nil {
-//		log.Println("UpdateConfig() err")
-//		driverAdapter.Unlock()
-//		releaseDriverAdapter(tunnelName)
-//		return nil, err
-//	}
-//	driverAdapter.Unlock()
-//	log.Printf("UpdateConfig() runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
-//	log.Printf("UpdateConfig() storedConfig peer size=%d\n", len(storedConfig.Peers))
-//	log.Printf("UpdateConfig() conf peer size=%d\n", len(conf.Peers))
-//	log.Printf("UpdateConfig() conf=%s\n", conf.ToWgQuick())
-//	// 如果没有提升权限，则对配置进行脱敏处理
-//	if s.elevatedToken == 0 {
-//		conf.Redact()
-//	}
-//	log.Println("UpdateConfig() end()")
-//	return conf, nil
-//}
+// [Peer]
+// PublicKey = /3mh+V0WpIVNcECT9BB+Qz9VClT56WV5COLr2TsDZHs=
+// AllowedIPs = 10.0.0.0/8
+// Endpoint = 23.157.88.195:4001
+// PersistentKeepalive = 25
 
 //[Peer]
-//PublicKey = eBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
-//AllowedIPs = 1.25.25.28/0, ::/0
-//Endpoint = 192.168.117.114:51820
+//PublicKey = bGXkGfgXvsu1DrPepV8efLA5WnbnEBvu9M34ninwozI=
+//AllowedIPs = 10.1.7.5/32
+//Endpoint = 192.168.18.1:33079
 //PersistentKeepalive = 25
 
+// [Interface]
+// PrivateKey = YBOWHj8CGt2jfYzxUw+LPISkoU7GBMC2P/ys0a1LB2k=
+// Address = 10.1.7.3/24
+// MTU = 1420
+
+// [Peer]
+// PublicKey = /3mh+V0WpIVNcECT9BB+Qz9VClT56WV5COLr2TsDZHs=
+// AllowedIPs = 0.0.0.0/0, ::/0
+// Endpoint = 23.157.88.195:4001
+// PersistentKeepalive = 25
+
 //[Peer]
-//PublicKey = fBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
-//AllowedIPs = 0.0.0.0/0, ::/0
-//Endpoint = 192.168.117.111:51820
+//PublicKey = rM4FM2NaSQCHthVe8hA25fbgwJA2hkUGlHd1rp7E6kI=
+//AllowedIPs = 0.0.0.0/1,128.0.0.0/1
+//Endpoint = 192.168.8.1:33079
 //PersistentKeepalive = 25
+
+// [Interface]
+// PrivateKey = YBOWHj8CGt2jfYzxUw+LPISkoU7GBMC2P/ys0a1LB2k=
+// Address = 10.1.7.3/24
+// MTU = 1420
+
+// [Peer]
+// PublicKey = eBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
+// AllowedIPs = 1.25.25.28/0, ::/0
+// Endpoint = 192.168.117.114:51820
+// PersistentKeepalive = 25
+
+// [Peer]
+// PublicKey = fBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
+// AllowedIPs = 0.0.0.0/1, 128.0.0.0/1
+// Endpoint = 192.168.117.111:51820
+// PersistentKeepalive = 25
 
 //[Peer]
 //PublicKey = gBDtNoqMs19HtTVC0ojbicpzVFMXMwfGd7pfin5zrXU=
@@ -147,45 +112,43 @@ func (s *ManagerService) StoredConfig(tunnelName string) (*conf.Config, error) {
 //PersistentKeepalive = 25
 
 //func (s *ManagerService) RuntimeConfig(tunnelName string) (*conf.Config, error) {
-//	// 加载存储的配置
 //	storedConfig, err := conf.LoadFromName(tunnelName)
 //	if err != nil {
 //		return nil, err
 //	}
-//	// 查找与指定 tunnel 关联的驱动适配器
 //	driverAdapter, err := findDriverAdapter(tunnelName)
 //	if err != nil {
 //		return nil, err
 //	}
-//	// 获取驱动适配器的运行时配置
 //	runtimeConfig, err := driverAdapter.Configuration()
 //	if err != nil {
 //		driverAdapter.Unlock()
 //		releaseDriverAdapter(tunnelName)
 //		return nil, err
 //	}
-//	// 将运行时配置和存储的配置合并
-//	conf := conf.FromDriverConfiguration2(runtimeConfig, storedConfig)
-//	configuration, _ := conf.ToDriverConfiguration()
-//	err = driverAdapter.SetConfiguration(conf.ToDriverConfiguration())
-//	if err != nil {
-//		log.Println("RuntimeConfig() err")
-//		driverAdapter.Unlock()
-//		releaseDriverAdapter(tunnelName)
-//		return nil, err
-//	}
+//
+//	conf := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
 //	driverAdapter.Unlock()
-//
-//	log.Printf("RuntimeConfig() runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
-//	log.Printf("RuntimeConfig() storedConfig peer size=%d\n", len(storedConfig.Peers))
-//	log.Printf("RuntimeConfig() configuration peer size=%d\n", configuration.PeerCount)
-//	log.Printf("RuntimeConfig() conf peer size=%d\n", len(conf.Peers))
-//
-//	// 如果没有提升权限，则对配置进行脱敏处理
 //	if s.elevatedToken == 0 {
-//		storedConfig.Redact()
+//		conf.Redact()
 //	}
+//
+//	//// 立即将配置同步到 wireguard-nt
+//	//if err := driverAdapter.SetConfiguration(conf.ToDriverConfiguration()); err != nil {
+//	//	return nil, err
+//	//}
+//
+//	// log.Printf("RuntimeConfig() runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
+//	// log.Printf("RuntimeConfig() storedConfig peer size=%d\n", len(storedConfig.Peers))
+//	// log.Printf("RuntimeConfig() conf peer size=%d\n", len(conf.Peers))
+//
 //	return storedConfig, nil
+//}
+
+//func logPeerAction(action string, peer *driver.Peer) {
+//	// 使用 Base64 编码 PublicKey
+//	publicKeyEncoded := base64.StdEncoding.EncodeToString(peer.PublicKey[:])
+//	log.Printf("%s Peer: PublicKey=%s, Endpoint=%v, AllowedIPs=%v\n", action, publicKeyEncoded, peer.Endpoint, peer.Endpoint.Family)
 //}
 
 func (s *ManagerService) RuntimeConfig(tunnelName string) (*conf.Config, error) {
@@ -203,25 +166,29 @@ func (s *ManagerService) RuntimeConfig(tunnelName string) (*conf.Config, error) 
 		releaseDriverAdapter(tunnelName)
 		return nil, err
 	}
-	conf := conf.FromDriverConfiguration2(runtimeConfig, storedConfig)
+	conf := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
 	driverAdapter.Unlock()
 	if s.elevatedToken == 0 {
 		conf.Redact()
 	}
-
-	// 立即将配置同步到 wireguard-nt
+	//// 立即将配置同步到 wireguard-nt
 	if err := driverAdapter.SetConfiguration(conf.ToDriverConfiguration()); err != nil {
 		return nil, err
 	}
-	//configuration, _ := conf.ToDriverConfiguration()
+	err = driverAdapter.SetAdapterState(driver.AdapterStateUp)
+	if err != nil {
+		log.Println(fmt.Errorf("%v: %w", services.ErrorDeviceBringUp, err))
+	}
+	log.Printf("RuntimeConfig() runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
+	log.Printf("RuntimeConfig() storedConfig peer size=%d\n", len(storedConfig.Peers))
+	log.Printf("RuntimeConfig() conf peer size=%d\n", len(conf.Peers))
+	//log.Printf("RuntimeConfig() driverAdapter luid=%d\n", driverAdapter.LUID())
 
-	//log.Printf("RuntimeConfig() runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
-	//log.Printf("RuntimeConfig() storedConfig peer size=%d\n", len(storedConfig.Peers))
-	//log.Printf("RuntimeConfig() configuration peer size=%d\n", configuration.PeerCount)
-	//log.Printf("RuntimeConfig() conf peer size=%d\n", len(conf.Peers))
-	//log.Printf("RuntimeConfig() conf peer size=%d\n", configuration.)
-
-	return storedConfig, nil
+	//if int(runtimeConfig.PeerCount) != len(conf.Peers) {
+	//time.Sleep(5 * time.Second)
+	//sendMessageForPipe("set route")
+	//}
+	return conf, nil
 }
 
 func (s *ManagerService) UpdateConfig(tunnelName string, storedConfig *conf.Config) (*conf.Config, error) {
@@ -652,7 +619,7 @@ func (s *ManagerService) ServeConn(reader io.Reader, writer io.Writer) {
 	}
 }
 
-func IPCServerListen(reader, writer, events *os.File, elevatedToken windows.Token) {
+func IPCServerListen(reader, writer, events *os.File, elevatedToken windows.Token) *ManagerService {
 	service := &ManagerService{
 		events:        events,
 		elevatedToken: elevatedToken,
@@ -670,6 +637,7 @@ func IPCServerListen(reader, writer, events *os.File, elevatedToken windows.Toke
 		delete(managerServices, service)
 		managerServicesLock.Unlock()
 	}()
+	return service
 }
 
 func notifyAll(notificationType NotificationType, adminOnly bool, ifaces ...any) {

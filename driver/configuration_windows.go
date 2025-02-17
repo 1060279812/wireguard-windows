@@ -6,7 +6,6 @@
 package driver
 
 import (
-	"log"
 	"syscall"
 	"unsafe"
 
@@ -108,19 +107,6 @@ func (wireguard *Adapter) AdapterState() (adapterState AdapterState, err error) 
 
 // SetConfiguration sets the adapter configuration.
 func (wireguard *Adapter) SetConfiguration(interfaze *Interface, size uint32) (err error) {
-	// 遍历并打印 Peer 信息
-	var p *Peer
-	for i := uint32(0); i < interfaze.PeerCount; i++ {
-		if p == nil {
-			p = interfaze.FirstPeer()
-		} else {
-			p = p.NextPeer()
-		}
-
-		// 打印 Peer 的详细信息
-		log.Printf("Endpoint: %s, PersistentKeepalive: %d, Flags: %d\n", p.Endpoint.Addr(), p.PersistentKeepalive, p.Flags)
-
-	}
 	r0, _, e1 := syscall.SyscallN(procWireGuardSetConfiguration.Addr(), wireguard.handle, uintptr(unsafe.Pointer(interfaze)), uintptr(size))
 	if r0 == 0 {
 		err = e1

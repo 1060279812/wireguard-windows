@@ -265,6 +265,28 @@ func (luid LUID) SetRoutesForFamily(family AddressFamily, routesData []*RouteDat
 	return nil
 }
 
+//func (luid LUID) SetRoutesForFamily(family AddressFamily, routesData []*RouteData) error {
+//	err := luid.FlushRoutes(family)
+//	if err != nil {
+//		//log.Printf("SetRoutesForFamily() ----Error flushing routes for family: %v, Error: %v", family, err)
+//		return err
+//	}
+//	for _, rd := range routesData {
+//		if !rd.Destination.Addr().Is4() && family == windows.AF_INET {
+//			continue
+//		} else if !rd.Destination.Addr().Is6() && family == windows.AF_INET6 {
+//			continue
+//		}
+//		//log.Printf("SetRoutesForFamily() ---- Setting route: Destination: %v, NextHop: %v, Metric: %v", rd.Destination, rd.NextHop, rd.Metric)
+//		err := luid.AddRoute(rd.Destination, rd.NextHop, rd.Metric)
+//		if err != nil {
+//			//log.Printf("SetRoutesForFamily() ---- Error setting route: Destination: %v, NextHop: %v, Metric: %v, Error: %v", rd.Destination, rd.NextHop, rd.Metric, err)
+//			return err
+//		}
+//	}
+//	return nil
+//}
+
 // DeleteRoute method deletes a route that matches the criteria. Corresponds to DeleteIpForwardEntry2 function
 // (https://docs.microsoft.com/en-us/windows/desktop/api/netioapi/nf-netioapi-deleteipforwardentry2).
 func (luid LUID) DeleteRoute(destination netip.Prefix, nextHop netip.Addr) error {

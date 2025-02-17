@@ -13,6 +13,7 @@ import (
 
 	"github.com/1060279812/wireguard/windows/l18n"
 	"github.com/1060279812/wireguard/windows/ringlogger"
+
 	"github.com/lxn/walk"
 )
 

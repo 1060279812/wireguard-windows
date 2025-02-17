@@ -30,7 +30,7 @@ type interfaceWatcherEvent struct {
 	family winipcfg.AddressFamily
 }
 
-type interfaceWatcher struct {
+type InterfaceWatcher struct {
 	errors  chan interfaceWatcherError
 	started chan winipcfg.AddressFamily
 
@@ -46,7 +46,7 @@ type interfaceWatcher struct {
 	watchdog                *time.Timer
 }
 
-func (iw *interfaceWatcher) setup(family winipcfg.AddressFamily) {
+func (iw *InterfaceWatcher) setup(family winipcfg.AddressFamily) {
 	iw.watchdog.Stop()
 	var changeCallbacks *[]winipcfg.ChangeCallback
 	var ipversion string
@@ -87,8 +87,8 @@ func (iw *interfaceWatcher) setup(family winipcfg.AddressFamily) {
 	iw.started <- family
 }
 
-func watchInterface() (*interfaceWatcher, error) {
-	iw := &interfaceWatcher{
+func watchInterface() (*InterfaceWatcher, error) {
+	iw := &InterfaceWatcher{
 		errors:  make(chan interfaceWatcherError, 2),
 		started: make(chan winipcfg.AddressFamily, 4),
 	}
@@ -98,12 +98,17 @@ func watchInterface() (*interfaceWatcher, error) {
 	iw.watchdog.Stop()
 	var err error
 	iw.interfaceChangeCallback, err = winipcfg.RegisterInterfaceChangeCallback(func(notificationType winipcfg.MibNotificationType, iface *winipcfg.MibIPInterfaceRow) {
+
 		iw.setupMutex.Lock()
 		defer iw.setupMutex.Unlock()
 
 		if notificationType != winipcfg.MibAddInstance {
 			return
 		}
+		// 处理 MibAddInstance 和 MibDeleteInstance 通知类型
+		//if notificationType != winipcfg.MibAddInstance && notificationType != winipcfg.MibDeleteInstance {
+		//	return
+		//}
 		if iw.luid == 0 {
 			iw.storedEvents = append(iw.storedEvents, interfaceWatcherEvent{iface.InterfaceLUID, iface.Family})
 			return
@@ -112,7 +117,6 @@ func watchInterface() (*interfaceWatcher, error) {
 			return
 		}
 		iw.setup(iface.Family)
-
 		if state, err := iw.adapter.AdapterState(); err == nil && state == driver.AdapterStateDown {
 			log.Println("Reinitializing adapter configuration")
 			err = iw.adapter.SetConfiguration(iw.conf.ToDriverConfiguration())
@@ -131,11 +135,10 @@ func watchInterface() (*interfaceWatcher, error) {
 	return iw, nil
 }
 
-func (iw *interfaceWatcher) Configure(adapter *driver.Adapter, conf *conf.Config, luid winipcfg.LUID) {
+func (iw *InterfaceWatcher) Configure(adapter *driver.Adapter, conf *conf.Config, luid winipcfg.LUID) {
 	iw.setupMutex.Lock()
 	defer iw.setupMutex.Unlock()
 	iw.watchdog.Reset(time.Minute)
-
 	iw.adapter, iw.conf, iw.luid = adapter, conf, luid
 	for _, event := range iw.storedEvents {
 		if event.luid == luid {
@@ -145,7 +148,7 @@ func (iw *interfaceWatcher) Configure(adapter *driver.Adapter, conf *conf.Config
 	iw.storedEvents = nil
 }
 
-func (iw *interfaceWatcher) Destroy() {
+func (iw *InterfaceWatcher) Destroy() {
 	iw.setupMutex.Lock()
 	iw.watchdog.Stop()
 	changeCallbacks4 := iw.changeCallbacks4

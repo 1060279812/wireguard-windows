@@ -7,6 +7,7 @@ package conf
 
 import (
 	"encoding/base64"
+	"log"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -488,108 +489,80 @@ func FromDriverConfiguration(interfaze *driver.Interface, existingConfig *Config
 			}
 			peer.AllowedIPs = append(peer.AllowedIPs, netip.PrefixFrom(ip, int(a.Cidr)))
 		}
-
 		conf.Peers = append(conf.Peers, peer)
 	}
+
+	//var flag uint32 = 0
+	// 创建一个map用于快速查找existingConfig中的Peer
+	existingPeersMap := make(map[Key]Peer)
+	for _, existingPeer := range existingConfig.Peers {
+		existingPeersMap[existingPeer.PublicKey] = existingPeer
+	}
+
+	// 创建一个map用于快速查找interface中的Peer
+	interfacePeersMap := make(map[Key]Peer)
+	for _, peer := range conf.Peers {
+		interfacePeersMap[peer.PublicKey] = peer
+	}
+
+	// 检查并添加existingConfig中有但interface中没有的peer
+	for _, existingPeer := range existingConfig.Peers {
+		if _, exists := interfacePeersMap[existingPeer.PublicKey]; !exists {
+			conf.Peers = append(conf.Peers, existingPeer)
+			//flag |= 1
+			logPeerAction("-----------------Added", existingPeer)
+			//log.Printf("need update route")
+		}
+	}
+
+	// 检查并添加interface中有但existingConfig中没有的peer，设置Flag为RemovePeer
+	for _, peer := range conf.Peers {
+		if _, exists := existingPeersMap[peer.PublicKey]; !exists {
+			peer.Flags = driver.PeerRemove
+			conf.Peers = append(conf.Peers, peer)
+			logPeerAction("-----------------Removed", peer)
+			//log.Printf("need update route")
+		}
+	}
+
+	// 检查和替换AllowedIPs
+	for i := range conf.Peers {
+		if existingPeer, exists := existingPeersMap[conf.Peers[i].PublicKey]; exists {
+			if !equalAllowedIPs(conf.Peers[i].AllowedIPs, existingPeer.AllowedIPs) {
+				logPeerAction("-----------------Modified AllowedIPs before", conf.Peers[i])
+				conf.Peers[i].Flags = driver.PeerReplaceAllowedIPs
+				conf.Peers[i].AllowedIPs = existingPeer.AllowedIPs
+				logPeerAction("-----------------Modified AllowedIPs after   ", existingPeer)
+			}
+			if conf.Peers[i].Endpoint != existingPeer.Endpoint {
+				logPeerAction("-----------------Modified Endpoint before", conf.Peers[i])
+				conf.Peers[i].Endpoint = existingPeer.Endpoint
+				logPeerAction("-----------------Modified Endpoint after   ", existingPeer)
+			}
+		}
+	}
+	//for _, peer := range conf.Peers {
+	//	logPeerAction("-----------------apply", peer)
+	//}
 	return &conf
 }
 
-func FromDriverConfiguration2(interfaze *driver.Interface, existingConfig *Config) *Config {
-	conf := &Config{
-		Name: existingConfig.Name,
-		Interface: Interface{
-			Addresses: existingConfig.Interface.Addresses,
-			DNS:       existingConfig.Interface.DNS,
-			DNSSearch: existingConfig.Interface.DNSSearch,
-			MTU:       existingConfig.Interface.MTU,
-			PreUp:     existingConfig.Interface.PreUp,
-			PostUp:    existingConfig.Interface.PostUp,
-			PreDown:   existingConfig.Interface.PreDown,
-			PostDown:  existingConfig.Interface.PostDown,
-			TableOff:  existingConfig.Interface.TableOff,
-		},
-	}
-
-	if interfaze.Flags&driver.InterfaceHasPrivateKey != 0 {
-		conf.Interface.PrivateKey = interfaze.PrivateKey
-	}
-	if interfaze.Flags&driver.InterfaceHasListenPort != 0 {
-		conf.Interface.ListenPort = interfaze.ListenPort
-	}
-
-	existingPeers := make(map[Key]*Peer)
-	for i := range existingConfig.Peers {
-		existingPeers[existingConfig.Peers[i].PublicKey] = &existingConfig.Peers[i]
-	}
-
-	var p *driver.Peer
-	for i := uint32(0); i < interfaze.PeerCount; i++ {
-		if p == nil {
-			p = interfaze.FirstPeer()
-		} else {
-			p = p.NextPeer()
-		}
-
-		peer := Peer{}
-		if p.Flags&driver.PeerHasPublicKey != 0 {
-			peer.PublicKey = p.PublicKey
-		}
-		if p.Flags&driver.PeerHasPresharedKey != 0 {
-			peer.PresharedKey = p.PresharedKey
-		}
-		if p.Flags&driver.PeerHasEndpoint != 0 {
-			peer.Endpoint.Port = p.Endpoint.Port()
-			peer.Endpoint.Host = p.Endpoint.Addr().String()
-		}
-		if p.Flags&driver.PeerHasPersistentKeepalive != 0 {
-			peer.PersistentKeepalive = p.PersistentKeepalive
-		}
-		peer.TxBytes = Bytes(p.TxBytes)
-		peer.RxBytes = Bytes(p.RxBytes)
-		if p.LastHandshake != 0 {
-			peer.LastHandshakeTime = HandshakeTime((p.LastHandshake - 116444736000000000) * 100)
-		}
-		var a *driver.AllowedIP
-		for j := uint32(0); j < p.AllowedIPsCount; j++ {
-			if a == nil {
-				a = p.FirstAllowedIP()
-			} else {
-				a = a.NextAllowedIP()
-			}
-			var ip netip.Addr
-			if a.AddressFamily == windows.AF_INET {
-				ip = netip.AddrFrom4(*(*[4]byte)(a.Address[:4]))
-			} else if a.AddressFamily == windows.AF_INET6 {
-				ip = netip.AddrFrom16(*(*[16]byte)(a.Address[:16]))
-			}
-			peer.AllowedIPs = append(peer.AllowedIPs, netip.PrefixFrom(ip, int(a.Cidr)))
-		}
-
-		existingPeer, existsInExistingConfig := existingPeers[peer.PublicKey]
-
-		if existsInExistingConfig {
-			// 修改操作：AllowedIPs不同，使用existingConfig中的AllowedIPs替换掉interfaze中的AllowedIPs
-			if !equalAllowedIPs(existingPeer.AllowedIPs, peer.AllowedIPs) {
-				peer.AllowedIPs = existingPeer.AllowedIPs
-				peer.Flags = driver.PeerReplaceAllowedIPs
-			}
-		}
-
-		conf.Peers = append(conf.Peers, peer)
-		delete(existingPeers, peer.PublicKey) // 从existingPeers中删除已经处理的peer
-	}
-
-	// 处理删除操作：existingConfig中删除了某个interfaze中的配置
-	for _, peer := range existingConfig.Peers {
-		if _, existsInInterfaze := existingPeers[peer.PublicKey]; existsInInterfaze {
-			peer.Flags = driver.PeerRemove
-			conf.Peers = append(conf.Peers, peer)
-		}
-	}
-
-	return conf
+func logPeerAction(action string, peer Peer) {
+	// 使用 Base64 编码 PublicKey
+	publicKeyEncoded := base64.StdEncoding.EncodeToString(peer.PublicKey[:])
+	log.Printf("%s Peer: PublicKey=%s, Endpoint=%v, AllowedIPs=%v, Flags=%d\n", action, publicKeyEncoded, peer.Endpoint, peer.AllowedIPs, peer.Flags)
 }
 
+// 辅助函数用于比较两个Peer是否相等
+func equalPeers(a, b Peer) bool {
+	return a.PublicKey == b.PublicKey &&
+		a.PresharedKey == b.PresharedKey &&
+		a.Endpoint == b.Endpoint &&
+		a.PersistentKeepalive == b.PersistentKeepalive &&
+		equalAllowedIPs(a.AllowedIPs, b.AllowedIPs)
+}
+
+// 辅助函数用于比较两个AllowedIPs切片是否相等
 func equalAllowedIPs(a, b []netip.Prefix) bool {
 	if len(a) != len(b) {
 		return false
@@ -600,44 +573,4 @@ func equalAllowedIPs(a, b []netip.Prefix) bool {
 		}
 	}
 	return true
-}
-
-// 辅助函数：替换 AllowedIPs 列表
-func replaceAllowedIPs(config *Config, publicKey Key, newAllowedIPs []netip.Prefix) []netip.Prefix {
-	for i, peer := range config.Peers {
-		if peer.PublicKey == publicKey {
-			config.Peers[i].AllowedIPs = newAllowedIPs
-			return config.Peers[i].AllowedIPs
-		}
-	}
-	return newAllowedIPs
-}
-
-// 辅助函数：移除指定公钥的 Peer
-func removePeer(peers []Peer, publicKey Key) []Peer {
-	filteredPeers := []Peer{}
-	for _, peer := range peers {
-		if peer.PublicKey != publicKey {
-			filteredPeers = append(filteredPeers, peer)
-		}
-	}
-	return filteredPeers
-}
-
-// 辅助函数：查找现有的 Peer
-func findExistingPeer(peers []Peer, publicKey Key) *Peer {
-	for i, peer := range peers {
-		if peer.PublicKey == publicKey {
-			return &peers[i]
-		}
-	}
-	return nil
-}
-
-// 辅助函数：更新 Peer
-func updatePeer(existingPeer *Peer, newPeer *Peer) {
-	existingPeer.PresharedKey = newPeer.PresharedKey
-	existingPeer.Endpoint = newPeer.Endpoint
-	existingPeer.AllowedIPs = newPeer.AllowedIPs
-	existingPeer.PersistentKeepalive = newPeer.PersistentKeepalive
 }

@@ -6,7 +6,10 @@
 package manager
 
 import (
+	"encoding/base64"
 	"errors"
+	"github.com/1060279812/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/manager/grpc"
 	"log"
 	"os"
 	"runtime"
@@ -19,13 +22,23 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 
-	"github.com/1060279812/wireguard/windows/conf"
 	"github.com/1060279812/wireguard/windows/elevate"
 	"github.com/1060279812/wireguard/windows/ringlogger"
 	"github.com/1060279812/wireguard/windows/services"
 )
 
-type managerService struct{}
+const (
+	pipeName     = `\\.\pipe\MyNamedPipe`
+	maxInstances = 10 // 增加命名管道的最大实例数
+)
+
+type managerService struct {
+}
+
+var (
+	pipeHandle windows.Handle
+	icpService *ManagerService
+)
 
 func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (svcSpecificEC bool, exitCode uint32) {
 	// 将服务状态设置为启动中
@@ -197,7 +210,7 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 				log.Printf("Unable to create pipe: %v", err)
 				return
 			}
-			IPCServerListen(ourReader, ourWriter, ourEvents, elevatedToken)
+			icpService = IPCServerListen(ourReader, ourWriter, ourEvents, elevatedToken)
 			theirLogMapping, err := ringlogger.Global.ExportInheritableMappingHandle()
 			if err != nil {
 				log.Printf("Unable to export inheritable mapping handle for logging: %v", err)
@@ -298,6 +311,21 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 
 	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptSessionChange}
 
+	callback := func(config *conf.Config) {
+		if icpService == nil {
+			return
+		}
+		_, err := icpService.Create(config)
+		if err != nil {
+			return
+		}
+		_, err = icpService.RuntimeConfig(config.Name)
+		if err != nil {
+			return
+		}
+	}
+	go grpc.StartGrpcClient(callback)
+
 	uninstall := false
 loop:
 	for {
@@ -308,6 +336,7 @@ loop:
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Stop:
+				log.Printf("------------------ manager service Stop.........................")
 				break loop
 			case svc.Interrogate:
 				changes <- c.CurrentStatus
@@ -362,6 +391,17 @@ loop:
 	return
 }
 
+func logPeerAction(action string, peer conf.Peer) {
+	// 使用 Base64 编码 PublicKey
+	publicKeyEncoded := base64.StdEncoding.EncodeToString(peer.PublicKey[:])
+	log.Printf("%s Peer: PublicKey=%s, Endpoint=%v, AllowedIPs=%v, Flags=%d\n", action, publicKeyEncoded, peer.Endpoint, peer.AllowedIPs, peer.Flags)
+}
+
 func Run() error {
 	return svc.Run("WireGuardManager", &managerService{})
+}
+
+// UpperInterface 定义一个接口，包含要被调用的函数
+type UpperInterface interface {
+	updateTunnelConfig(conf.Config)
 }

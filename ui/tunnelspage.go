@@ -9,16 +9,16 @@ import (
 	"archive/zip"
 	"errors"
 	"fmt"
-	"github.com/1060279812/wireguard/windows/conf"
-	"github.com/1060279812/wireguard/windows/l18n"
-	"github.com/1060279812/wireguard/windows/manager"
-	"github.com/lxn/walk"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/1060279812/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/l18n"
+	"github.com/1060279812/wireguard/windows/manager"
+	"github.com/lxn/walk"
 )
 
 type TunnelsPage struct {
@@ -466,7 +466,7 @@ func (tp *TunnelsPage) onTunnelsViewItemActivated() {
 //PersistentKeepalive = 25
 
 func (tp *TunnelsPage) onEditTunnel() {
-	log.Println("--------onEditTunnel -> RuntimeConfig()")
+
 	tunnel := tp.listView.CurrentTunnel()
 	if tunnel == nil {
 		return
@@ -504,14 +504,15 @@ func (tp *TunnelsPage) onEditTunnel() {
 				if err != nil {
 					return
 				}
-				//config, err := tunnel.UpdateConfig(config)
-				//config, err := tunnel.RuntimeConfig()
-				//if err != nil {
-				//	return
-				//}
-				//if config.Name == "" {
-				//	config, _ = tunnel.StoredConfig()
-				//}
+				//tunnel.Start()
+				// config, err := tunnel.UpdateConfig(config)
+				// // config, err := tunnel.RuntimeConfig()
+				// if err != nil {
+				// 	return
+				// }
+				// if config.Name == "" {
+				// 	config, _ = tunnel.StoredConfig()
+				// }
 				//tp.confView.Synchronize(func() {
 				//	tp.confView.setTunnel(&tunnel, config, priorState)
 				//})
