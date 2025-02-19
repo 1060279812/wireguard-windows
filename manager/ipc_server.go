@@ -354,10 +354,12 @@ func (s *ManagerService) GlobalState() TunnelState {
 
 func (s *ManagerService) Create(tunnelConfig *conf.Config) (*Tunnel, error) {
 	if s.elevatedToken == 0 {
+		log.Printf("-------Create() s.elevatedToken == 0------------")
 		return nil, windows.ERROR_ACCESS_DENIED
 	}
 	err := tunnelConfig.Save(true)
 	if err != nil {
+		log.Printf("-------Create() tunnelConfig.Save(true) err------------")
 		return nil, err
 	}
 	return &Tunnel{tunnelConfig.Name}, nil

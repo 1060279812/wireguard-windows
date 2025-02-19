@@ -22,7 +22,7 @@ import (
 const (
 	maxLogLineLength = 512
 	maxTagLength     = 5
-	maxLines         = 2048
+	maxLines         = 30
 	magic            = 0xbadbabe
 )
 
@@ -145,9 +145,20 @@ func (rl *Ringlogger) WriteWithTimestamp(p []byte, ts int64) (n int, err error) 
 	line.line[2+len(rl.tag)] = ' '
 	copy(line.line[3+len(rl.tag):], p[:])
 	line.line[0] = '['
-	atomic.StoreInt64(&line.timeNs, ts)
 
+	//TODO 这里为了节省性能，方便上层读取，只存储这三种日志
+	//logString := BytesToString(&line.line)
+	//if strings.Contains(logString, "Sending handshake initiation to peer") ||
+	//	strings.Contains(logString, "Receiving handshake response from peer") ||
+	//	strings.Contains(logString, "Handshake for peer") {
+	//	atomic.StoreInt64(&line.timeNs, ts)
+	//}
+	atomic.StoreInt64(&line.timeNs, ts)
 	return ret, nil
+}
+
+func BytesToString(b *[maxLogLineLength]byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }
 
 func (rl *Ringlogger) WriteTo(out io.Writer) (n int64, err error) {

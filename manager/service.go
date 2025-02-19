@@ -10,6 +10,8 @@ import (
 	"errors"
 	"github.com/1060279812/wireguard/windows/conf"
 	"github.com/1060279812/wireguard/windows/manager/grpc"
+
+	//"github.com/1060279812/wireguard/windows/manager/grpc2"
 	"log"
 	"os"
 	"runtime"
@@ -25,11 +27,6 @@ import (
 	"github.com/1060279812/wireguard/windows/elevate"
 	"github.com/1060279812/wireguard/windows/ringlogger"
 	"github.com/1060279812/wireguard/windows/services"
-)
-
-const (
-	pipeName     = `\\.\pipe\MyNamedPipe`
-	maxInstances = 10 // 增加命名管道的最大实例数
 )
 
 type managerService struct {
@@ -275,6 +272,7 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 			}
 		}
 	}
+
 	procsGroup := sync.WaitGroup{}
 	goStartProcess := func(session uint32) {
 		procsGroup.Add(1)
@@ -309,22 +307,33 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 	}
 	windows.WTSFreeMemory(uintptr(unsafe.Pointer(sessionsPointer)))
 
-	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptSessionChange}
-
+	//启动rpc服务器
 	callback := func(config *conf.Config) {
+		defer printPanicInfo()
+		log.Printf("-------callback------------")
 		if icpService == nil {
+			log.Printf("-------callback  icpService == nil------------")
 			return
 		}
+		log.Printf("-------callback  icpService.Create start------------")
 		_, err := icpService.Create(config)
 		if err != nil {
+			log.Printf("-------callback  icpService.Create err------------")
 			return
 		}
+		log.Printf("-------callback  Create  end------------")
+		log.Printf("-------callback  RuntimeConfig  starat------------")
 		_, err = icpService.RuntimeConfig(config.Name)
 		if err != nil {
+			log.Printf("-------callback  icpService.RuntimeConfig err------------")
 			return
 		}
+		log.Printf("-------callback  RuntimeConfig end------------")
 	}
 	go grpc.StartGrpcClient(callback)
+	log.Printf("-------StartGrpcServer------------")
+
+	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptSessionChange}
 
 	uninstall := false
 loop:
@@ -389,6 +398,18 @@ loop:
 		}
 	}
 	return
+}
+
+func printPanicInfo() {
+	if r := recover(); r != nil {
+		pc, file, line, ok := runtime.Caller(2)
+		if ok {
+			funcName := runtime.FuncForPC(pc).Name()
+			log.Printf("Panic occurred in function %s at %s:%d: %v\n", funcName, file, line, r)
+		} else {
+			log.Printf("Panic occurred: %v\n", r)
+		}
+	}
 }
 
 func logPeerAction(action string, peer conf.Peer) {

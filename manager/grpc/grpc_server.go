@@ -10,7 +10,6 @@ import (
 	"log"
 	"strings"
 	"sync"
-	"time"
 )
 
 type MessageStruct struct {
@@ -33,7 +32,7 @@ type Callback func(config *conf.Config)
 
 func StartGrpcClient(callback func(config *conf.Config)) {
 	var err error
-	conn, err = grpc.Dial("localhost:50051", grpc.WithInsecure(), grpc.WithBlock())
+	conn, err = grpc.Dial("localhost:50085", grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("无法连接服务器: %v", err)
 	}
@@ -50,13 +49,13 @@ func StartGrpcClient(callback func(config *conf.Config)) {
 	// 启动接收消息的协程
 	go receiveMessages(stream, callback)
 
-	for i := 0; i < 100; i++ {
-		// 发送消息
-		sendMessage(stream, []map[string]string{
-			{"type": "1", "message": "Hello from Golang client 1!"},
-		})
-		time.Sleep(time.Second * 5)
-	}
+	//for i := 0; i < 10000; i++ {
+	//	// 发送消息
+	//	sendMessage(stream, []map[string]string{
+	//		{"type": "1", "message": "Hello from Golang client 1!"},
+	//	})
+	//	time.Sleep(time.Second * 5)
+	//}
 	// 等待接收消息的协程结束
 	wg.Wait()
 
@@ -81,26 +80,44 @@ func receiveMessages(stream pb.CommunicationService_ChatClient, callback func(co
 		select {
 		case <-stopCh:
 			log.Println("接收消息的协程停止")
+			sendMessage(stream, []map[string]string{
+				{"type": "400", "message": "...................接收消息的协程停止..............."},
+			})
 			return
 		default:
 			res, err := stream.Recv()
 			if err == io.EOF {
 				log.Println("流已关闭")
-				return
+				sendMessage(stream, []map[string]string{
+					{"type": "103", "message": "...................流已关闭..............."},
+				})
 			}
 			if err != nil {
 				log.Fatalf("接收消息失败: %v", err)
-				return
+				sendMessage(stream, []map[string]string{
+					{"type": "101", "message": "...................接收消息失败..............."},
+				})
 			}
 			message := res.JsonMessage
+			log.Printf("接收到的消息: %s", message)
+			sendMessage(stream, []map[string]string{
+				{"type": "200", "message": message},
+			})
 			if strings.Contains(message, "Peer") {
 				cfg, err := conf.FromWgQuick(message, interfaceName)
-				if err != nil {
-					return
+				if err == nil {
+					callback(cfg)
+					log.Println("----------------已收到 peer消息 1111--------------------")
+					sendMessage(stream, []map[string]string{
+						{"type": "200", "message": "----------------已收到 peer消息--------------------"},
+					})
+				} else {
+					sendMessage(stream, []map[string]string{
+						{"type": "400", "message": "----------------已收到 peer消息--------------------"},
+					})
+					log.Fatalf("FromWgQuick err: %v", err)
 				}
-				callback(cfg)
 			}
-			//log.Printf("接收到的消息: %s", message)
 		}
 	}
 }

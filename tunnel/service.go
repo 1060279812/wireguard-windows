@@ -244,7 +244,7 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 	changes <- svc.Status{State: serviceState, Accepts: svc.AcceptStop | svc.AcceptShutdown}
 
 	// 启动日志监听器
-	go service.startLogListener(adapter, luid, watcher)
+	//go service.startLogListener(adapter, luid, watcher)
 
 	//创建命名管道
 	//go service.startPipeServer(adapter, luid, watcher)
