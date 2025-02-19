@@ -133,7 +133,6 @@ startOver:
 	} else if err != nil {
 		return fmt.Errorf("unable to set metric and MTU: %w", err)
 	}
-
 	err = luid.SetDNS(family, conf.Interface.DNS, conf.Interface.DNSSearch)
 	if err == windows.ERROR_NOT_FOUND && retryOnFailure {
 		goto startOver

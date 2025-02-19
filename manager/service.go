@@ -6,7 +6,12 @@
 package manager
 
 import (
+	"encoding/base64"
 	"errors"
+	"github.com/1060279812/wireguard/windows/conf"
+	"github.com/1060279812/wireguard/windows/manager/grpc"
+
+	//"github.com/1060279812/wireguard/windows/manager/grpc2"
 	"log"
 	"os"
 	"runtime"
@@ -19,13 +24,18 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 
-	"github.com/1060279812/wireguard/windows/conf"
 	"github.com/1060279812/wireguard/windows/elevate"
 	"github.com/1060279812/wireguard/windows/ringlogger"
 	"github.com/1060279812/wireguard/windows/services"
 )
 
-type managerService struct{}
+type managerService struct {
+}
+
+var (
+	pipeHandle windows.Handle
+	icpService *ManagerService
+)
 
 func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (svcSpecificEC bool, exitCode uint32) {
 	// 将服务状态设置为启动中
@@ -197,7 +207,7 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 				log.Printf("Unable to create pipe: %v", err)
 				return
 			}
-			IPCServerListen(ourReader, ourWriter, ourEvents, elevatedToken)
+			icpService = IPCServerListen(ourReader, ourWriter, ourEvents, elevatedToken)
 			theirLogMapping, err := ringlogger.Global.ExportInheritableMappingHandle()
 			if err != nil {
 				log.Printf("Unable to export inheritable mapping handle for logging: %v", err)
@@ -262,6 +272,7 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 			}
 		}
 	}
+
 	procsGroup := sync.WaitGroup{}
 	goStartProcess := func(session uint32) {
 		procsGroup.Add(1)
@@ -296,6 +307,32 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 	}
 	windows.WTSFreeMemory(uintptr(unsafe.Pointer(sessionsPointer)))
 
+	//启动rpc服务器
+	callback := func(config *conf.Config) {
+		defer printPanicInfo()
+		log.Printf("-------callback------------")
+		if icpService == nil {
+			log.Printf("-------callback  icpService == nil------------")
+			return
+		}
+		log.Printf("-------callback  icpService.Create start------------")
+		_, err := icpService.Create(config)
+		if err != nil {
+			log.Printf("-------callback  icpService.Create err------------")
+			return
+		}
+		log.Printf("-------callback  Create  end------------")
+		log.Printf("-------callback  RuntimeConfig  starat------------")
+		_, err = icpService.RuntimeConfig(config.Name)
+		if err != nil {
+			log.Printf("-------callback  icpService.RuntimeConfig err------------")
+			return
+		}
+		log.Printf("-------callback  RuntimeConfig end------------")
+	}
+	go grpc.StartGrpcClient(callback)
+	log.Printf("-------StartGrpcServer------------")
+
 	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptSessionChange}
 
 	uninstall := false
@@ -308,6 +345,7 @@ loop:
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Stop:
+				log.Printf("------------------ manager service Stop.........................")
 				break loop
 			case svc.Interrogate:
 				changes <- c.CurrentStatus
@@ -362,6 +400,29 @@ loop:
 	return
 }
 
+func printPanicInfo() {
+	if r := recover(); r != nil {
+		pc, file, line, ok := runtime.Caller(2)
+		if ok {
+			funcName := runtime.FuncForPC(pc).Name()
+			log.Printf("Panic occurred in function %s at %s:%d: %v\n", funcName, file, line, r)
+		} else {
+			log.Printf("Panic occurred: %v\n", r)
+		}
+	}
+}
+
+func logPeerAction(action string, peer conf.Peer) {
+	// 使用 Base64 编码 PublicKey
+	publicKeyEncoded := base64.StdEncoding.EncodeToString(peer.PublicKey[:])
+	log.Printf("%s Peer: PublicKey=%s, Endpoint=%v, AllowedIPs=%v, Flags=%d\n", action, publicKeyEncoded, peer.Endpoint, peer.AllowedIPs, peer.Flags)
+}
+
 func Run() error {
 	return svc.Run("WireGuardManager", &managerService{})
+}
+
+// UpperInterface 定义一个接口，包含要被调用的函数
+type UpperInterface interface {
+	updateTunnelConfig(conf.Config)
 }

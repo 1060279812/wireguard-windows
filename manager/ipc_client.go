@@ -8,6 +8,7 @@ package manager
 import (
 	"encoding/gob"
 	"errors"
+	"log"
 	"os"
 	"sync"
 
@@ -44,6 +45,7 @@ type MethodType int
 const (
 	StoredConfigMethodType  MethodType = iota //获取存储的隧道配置。
 	RuntimeConfigMethodType                   //获取运行时隧道配置。
+	UpdateConfigMethodType                    //获取运行时隧道配置。
 	StartMethodType                           //启动隧道。
 	StopMethodType                            //停止隧道。
 	WaitForStopMethodType                     //等待隧道停止。
@@ -94,6 +96,7 @@ type UpdateProgressCallback struct {
 var updateProgressCallbacks = make(map[*UpdateProgressCallback]bool)
 
 func InitializeIPCClient(reader, writer, events *os.File) {
+	log.Printf("------------InitializeIPCClient() start----------")
 	rpcDecoder = gob.NewDecoder(reader)
 	rpcEncoder = gob.NewEncoder(writer)
 	go func() {
@@ -356,19 +359,28 @@ func IPCClientGlobalState() (tunnelState TunnelState, err error) {
 func IPCClientNewTunnel(conf *conf.Config) (tunnel Tunnel, err error) {
 	rpcMutex.Lock()
 	defer rpcMutex.Unlock()
-
+	log.Printf("------------IPCClientNewTunnel start----------")
+	if rpcEncoder == nil {
+		log.Printf("------------IPCClientNewTunnel rpcEncoder == nil----------")
+	} else {
+		log.Printf("------------IPCClientNewTunnel rpcEncoder != nil----------")
+	}
 	err = rpcEncoder.Encode(CreateMethodType)
 	if err != nil {
+		log.Printf("------------IPCClientNewTunnel err1111----------")
 		return
 	}
 	err = rpcEncoder.Encode(*conf)
 	if err != nil {
+		log.Printf("------------IPCClientNewTunnel err2222----------")
 		return
 	}
 	err = rpcDecoder.Decode(&tunnel)
 	if err != nil {
+		log.Printf("------------IPCClientNewTunnel err3333----------")
 		return
 	}
+	log.Printf("------------IPCClientNewTunnel end----------")
 	err = rpcDecodeError()
 	return
 }
@@ -479,4 +491,28 @@ func IPCClientRegisterUpdateProgress(cb func(dp updater.DownloadProgress)) *Upda
 
 func (cb *UpdateProgressCallback) Unregister() {
 	delete(updateProgressCallbacks, cb)
+}
+
+func (t *Tunnel) UpdateConfig(config *conf.Config) (c conf.Config, err error) {
+	rpcMutex.Lock()
+	defer rpcMutex.Unlock()
+
+	err = rpcEncoder.Encode(UpdateConfigMethodType)
+	if err != nil {
+		return
+	}
+	err = rpcEncoder.Encode(t.Name)
+	if err != nil {
+		return
+	}
+	err = rpcEncoder.Encode(config)
+	if err != nil {
+		return
+	}
+	err = rpcDecoder.Decode(&c)
+	if err != nil {
+		return
+	}
+	err = rpcDecodeError()
+	return
 }

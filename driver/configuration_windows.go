@@ -30,13 +30,21 @@ type AllowedIP struct {
 type PeerFlag uint32
 
 const (
-	PeerHasPublicKey           PeerFlag = 1 << 0
-	PeerHasPresharedKey        PeerFlag = 1 << 1
-	PeerHasPersistentKeepalive PeerFlag = 1 << 2
-	PeerHasEndpoint            PeerFlag = 1 << 3
-	PeerReplaceAllowedIPs      PeerFlag = 1 << 5
-	PeerRemove                 PeerFlag = 1 << 6
-	PeerUpdateOnly             PeerFlag = 1 << 7
+	//PeerHasPublicKey           PeerFlag = 1 << 0
+	//PeerHasPresharedKey        PeerFlag = 1 << 1
+	//PeerHasPersistentKeepalive PeerFlag = 1 << 2
+	//PeerHasEndpoint            PeerFlag = 1 << 3
+	//PeerReplaceAllowedIPs      PeerFlag = 1 << 5
+	//PeerRemove                 PeerFlag = 1 << 6
+	//PeerUpdateOnly             PeerFlag = 1 << 7
+
+	PeerHasPublicKey           PeerFlag = 1 << 0 // 表示该节点具有公钥
+	PeerHasPresharedKey        PeerFlag = 1 << 1 // 表示该节点具有预共享密钥
+	PeerHasPersistentKeepalive PeerFlag = 1 << 2 // 表示该节点具有持续保持活动的设置
+	PeerHasEndpoint            PeerFlag = 1 << 3 // 表示该节点具有端点信息
+	PeerReplaceAllowedIPs      PeerFlag = 1 << 5 // 表示应替换允许的 IP 列表
+	PeerRemove                 PeerFlag = 1 << 6 // 表示应删除该节点
+	PeerUpdateOnly             PeerFlag = 1 << 7 // 表示仅更新现有节点
 )
 
 type Peer struct {

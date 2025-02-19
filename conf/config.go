@@ -10,6 +10,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"github.com/1060279812/wireguard/windows/driver"
 	"net/netip"
 	"strings"
 	"time"
@@ -53,6 +54,7 @@ type Interface struct {
 }
 
 type Peer struct {
+	Flags               driver.PeerFlag
 	PublicKey           Key
 	PresharedKey        Key
 	AllowedIPs          []netip.Prefix

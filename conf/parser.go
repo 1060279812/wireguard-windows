@@ -7,6 +7,7 @@ package conf
 
 import (
 	"encoding/base64"
+	"log"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -335,6 +336,97 @@ func FromWgQuickWithUnknownEncoding(s, name string) (*Config, error) {
 	return nil, firstErr
 }
 
+/**
+ * 将驱动配置和存储配置合并，生成最终的配置 runtimeConfig existingConfig
+ */
+//func FromDriverConfiguration(interfaze *driver.Interface, existingConfig *Config) *Config {
+//	conf := Config{
+//		Name: existingConfig.Name,
+//		Interface: Interface{
+//			Addresses: existingConfig.Interface.Addresses,
+//			DNS:       existingConfig.Interface.DNS,
+//			DNSSearch: existingConfig.Interface.DNSSearch,
+//			MTU:       existingConfig.Interface.MTU,
+//			PreUp:     existingConfig.Interface.PreUp,
+//			PostUp:    existingConfig.Interface.PostUp,
+//			PreDown:   existingConfig.Interface.PreDown,
+//			PostDown:  existingConfig.Interface.PostDown,
+//			TableOff:  existingConfig.Interface.TableOff,
+//		},
+//	}
+//	if interfaze.Flags&driver.InterfaceHasPrivateKey != 0 {
+//		conf.Interface.PrivateKey = interfaze.PrivateKey
+//	}
+//	if interfaze.Flags&driver.InterfaceHasListenPort != 0 {
+//		conf.Interface.ListenPort = interfaze.ListenPort
+//	}
+//	var p *driver.Peer
+//	for i := uint32(0); i < interfaze.PeerCount; i++ {
+//		if p == nil {
+//			p = interfaze.FirstPeer()
+//		} else {
+//			p = p.NextPeer()
+//		}
+//		peer := Peer{}
+//		if p.Flags&driver.PeerHasPublicKey != 0 {
+//			peer.PublicKey = p.PublicKey
+//		}
+//		if p.Flags&driver.PeerHasPresharedKey != 0 {
+//			peer.PresharedKey = p.PresharedKey
+//		}
+//		if p.Flags&driver.PeerHasEndpoint != 0 {
+//			peer.Endpoint.Port = p.Endpoint.Port()
+//			peer.Endpoint.Host = p.Endpoint.Addr().String()
+//		}
+//		if p.Flags&driver.PeerHasPersistentKeepalive != 0 {
+//			peer.PersistentKeepalive = p.PersistentKeepalive
+//		}
+//		peer.TxBytes = Bytes(p.TxBytes)
+//		peer.RxBytes = Bytes(p.RxBytes)
+//		if p.LastHandshake != 0 {
+//			peer.LastHandshakeTime = HandshakeTime((p.LastHandshake - 116444736000000000) * 100)
+//		}
+//		var a *driver.AllowedIP
+//		for j := uint32(0); j < p.AllowedIPsCount; j++ {
+//			if a == nil {
+//				a = p.FirstAllowedIP()
+//			} else {
+//				a = a.NextAllowedIP()
+//			}
+//			var ip netip.Addr
+//			if a.AddressFamily == windows.AF_INET {
+//				ip = netip.AddrFrom4(*(*[4]byte)(a.Address[:4]))
+//			} else if a.AddressFamily == windows.AF_INET6 {
+//				ip = netip.AddrFrom16(*(*[16]byte)(a.Address[:16]))
+//			}
+//			peer.AllowedIPs = append(peer.AllowedIPs, netip.PrefixFrom(ip, int(a.Cidr)))
+//		}
+//
+//		// 处理 PeerFlag 逻辑
+//		if p.Flags&driver.PeerReplaceAllowedIPs != 0 {
+//			// 替换 AllowedIPs 列表
+//			peer.AllowedIPs = replaceAllowedIPs(existingConfig, peer.PublicKey, peer.AllowedIPs)
+//		}
+//
+//		if p.Flags&driver.PeerRemove != 0 {
+//			// 移除 Peer
+//			conf.Peers = removePeer(conf.Peers, peer.PublicKey)
+//			continue
+//		}
+//
+//		if p.Flags&driver.PeerUpdateOnly != 0 {
+//			// 仅更新现有 Peer
+//			if existingPeer := findExistingPeer(conf.Peers, peer.PublicKey); existingPeer != nil {
+//				updatePeer(existingPeer, &peer)
+//				continue
+//			}
+//		}
+//
+//		conf.Peers = append(conf.Peers, peer)
+//	}
+//	return &conf
+//}
+
 func FromDriverConfiguration(interfaze *driver.Interface, existingConfig *Config) *Config {
 	conf := Config{
 		Name: existingConfig.Name,
@@ -399,5 +491,86 @@ func FromDriverConfiguration(interfaze *driver.Interface, existingConfig *Config
 		}
 		conf.Peers = append(conf.Peers, peer)
 	}
+
+	//var flag uint32 = 0
+	// 创建一个map用于快速查找existingConfig中的Peer
+	existingPeersMap := make(map[Key]Peer)
+	for _, existingPeer := range existingConfig.Peers {
+		existingPeersMap[existingPeer.PublicKey] = existingPeer
+	}
+
+	// 创建一个map用于快速查找interface中的Peer
+	interfacePeersMap := make(map[Key]Peer)
+	for _, peer := range conf.Peers {
+		interfacePeersMap[peer.PublicKey] = peer
+	}
+
+	// 检查并添加existingConfig中有但interface中没有的peer
+	for _, existingPeer := range existingConfig.Peers {
+		if _, exists := interfacePeersMap[existingPeer.PublicKey]; !exists {
+			conf.Peers = append(conf.Peers, existingPeer)
+			//flag |= 1
+			logPeerAction("-----------------Added", existingPeer)
+			//log.Printf("need update route")
+		}
+	}
+
+	// 检查并添加interface中有但existingConfig中没有的peer，设置Flag为RemovePeer
+	for _, peer := range conf.Peers {
+		if _, exists := existingPeersMap[peer.PublicKey]; !exists {
+			peer.Flags = driver.PeerRemove
+			conf.Peers = append(conf.Peers, peer)
+			logPeerAction("-----------------Removed", peer)
+			//log.Printf("need update route")
+		}
+	}
+
+	// 检查和替换AllowedIPs
+	for i := range conf.Peers {
+		if existingPeer, exists := existingPeersMap[conf.Peers[i].PublicKey]; exists {
+			if !equalAllowedIPs(conf.Peers[i].AllowedIPs, existingPeer.AllowedIPs) {
+				logPeerAction("-----------------Modified AllowedIPs before", conf.Peers[i])
+				conf.Peers[i].Flags = driver.PeerReplaceAllowedIPs
+				conf.Peers[i].AllowedIPs = existingPeer.AllowedIPs
+				logPeerAction("-----------------Modified AllowedIPs after   ", existingPeer)
+			}
+			if conf.Peers[i].Endpoint != existingPeer.Endpoint {
+				logPeerAction("-----------------Modified Endpoint before", conf.Peers[i])
+				conf.Peers[i].Endpoint = existingPeer.Endpoint
+				logPeerAction("-----------------Modified Endpoint after   ", existingPeer)
+			}
+		}
+	}
+	//for _, peer := range conf.Peers {
+	//	logPeerAction("-----------------apply", peer)
+	//}
 	return &conf
+}
+
+func logPeerAction(action string, peer Peer) {
+	// 使用 Base64 编码 PublicKey
+	publicKeyEncoded := base64.StdEncoding.EncodeToString(peer.PublicKey[:])
+	log.Printf("%s Peer: PublicKey=%s, Endpoint=%v, AllowedIPs=%v, Flags=%d\n", action, publicKeyEncoded, peer.Endpoint, peer.AllowedIPs, peer.Flags)
+}
+
+// 辅助函数用于比较两个Peer是否相等
+func equalPeers(a, b Peer) bool {
+	return a.PublicKey == b.PublicKey &&
+		a.PresharedKey == b.PresharedKey &&
+		a.Endpoint == b.Endpoint &&
+		a.PersistentKeepalive == b.PersistentKeepalive &&
+		equalAllowedIPs(a.AllowedIPs, b.AllowedIPs)
+}
+
+// 辅助函数用于比较两个AllowedIPs切片是否相等
+func equalAllowedIPs(a, b []netip.Prefix) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
