@@ -9,10 +9,10 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/1060279812/wireguard/windows/tunnel/grpc"
 	"log"
 	"os"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/1060279812/wireguard/windows/conf"
@@ -31,13 +31,11 @@ type tunnelService struct {
 }
 
 var (
-	watcher    *InterfaceWatcher
-	pipeHandle windows.Handle
+	watcher *InterfaceWatcher
 )
 
-const (
-	pipeName     = `\\.\pipe\MyNamedPipe`
-	maxInstances = 10 // 增加命名管道的最大实例数
+var (
+	grpcClient *grpc.GrpcClient
 )
 
 func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (svcSpecificEC bool, exitCode uint32) {
@@ -243,11 +241,39 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 	// 更新服务状态为运行中
 	changes <- svc.Status{State: serviceState, Accepts: svc.AcceptStop | svc.AcceptShutdown}
 
-	// 启动日志监听器
-	//go service.startLogListener(adapter, luid, watcher)
+	//启动rpc服务器
+	callback := func(storedConfig *conf.Config) {
+		err := storedConfig.Save(true)
+		if err != nil {
+			return
+		}
+		runtimeConfig, err := adapter.Configuration()
+		if err != nil {
+			return
+		}
+		conf, changeType := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
+		//// 立即将配置同步到 wireguard-nt
+		if err := adapter.SetConfiguration(conf.ToDriverConfiguration()); err != nil {
+			return
+		}
+		err = adapter.SetAdapterState(driver.AdapterStateUp)
+		if err != nil {
+			log.Println(fmt.Errorf("%v: %w", services.ErrorDeviceBringUp, err))
+		}
 
-	//创建命名管道
-	//go service.startPipeServer(adapter, luid, watcher)
+		if changeType == true {
+			grpcClient.SendMessage("response", "----------------已收到 allowedIPsChangeType = true消息--------------------")
+		} else {
+			grpcClient.SendMessage("response", "----------------已收到 allowedIPsChangeType = false消息--------------------")
+		}
+		//log.Printf("-------callback runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
+		//log.Printf("-------callback storedConfig peer size=%d\n", len(storedConfig.Peers))
+		//log.Printf("-------callback conf peer size=%d\n", len(conf.Peers))
+		//log.Printf("-------callback  end------------")
+	}
+	grpcClient = grpc.StartGrpcClient(callback)
+
+	log.Printf("-------StartGrpcServer------------")
 
 	var started bool
 	for {
@@ -255,18 +281,8 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Stop, svc.Shutdown:
+				go grpc.StopGrpcClient()
 				log.Printf("------------------ tunnel service Stop.........................")
-				//释放管道
-				//if pipeHandle != 0 {
-				//r, _, err := procDisconnectNamedPipe.Call(uintptr(handle))
-				//if r == 0 {
-				//	return err
-				//}
-				//err := windows.CloseHandle(pipeHandle)
-				//if err != nil {
-				//	return false, 0
-				//}
-				//}
 				return
 			case svc.Interrogate:
 				changes <- c.CurrentStatus
@@ -285,206 +301,6 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 			return
 		}
 	}
-}
-
-//func (service *tunnelService) startPipeServer(adapter *driver.Adapter, luid winipcfg.LUID, watcher *InterfaceWatcher) {
-//	for {
-//		handle, err := windows.CreateNamedPipe(
-//			windows.StringToUTF16Ptr(pipeName),
-//			windows.PIPE_ACCESS_DUPLEX,
-//			windows.PIPE_TYPE_MESSAGE|windows.PIPE_READMODE_MESSAGE|windows.PIPE_WAIT,
-//			maxInstances,
-//			4096,
-//			4096,
-//			0,
-//			nil)
-//		if err != nil {
-//			log.Fatalf("Failed to create pipe: %v", err)
-//		}
-//
-//		pipeHandle = handle
-//
-//		defer windows.CloseHandle(handle)
-//
-//		log.Println("Waiting for client to connect to the pipe...")
-//		err = windows.ConnectNamedPipe(handle, nil)
-//		if err != nil {
-//			log.Fatalf("Failed to connect to named pipe: %v", err)
-//		}
-//
-//		log.Println("Client connected to the pipe.")
-//		go handleClient(handle, service, adapter, luid, watcher)
-//	}
-//}
-
-//func handleClient(pipe windows.Handle, service *tunnelService, adapter *driver.Adapter, luid winipcfg.LUID, watcher *InterfaceWatcher) {
-//	defer windows.CloseHandle(pipe)
-//	buffer := make([]byte, 4096)
-//
-//	for {
-//		var bytesRead uint32
-//		err := windows.ReadFile(pipe, buffer, &bytesRead, nil)
-//		if err != nil {
-//			log.Printf("Error reading from pipe: %v", err)
-//			break
-//		}
-//		message := string(buffer[:bytesRead])
-//		log.Printf("Service PipeReceived message: %s", message)
-//
-//		if "set route" == message {
-//			var config *conf.Config
-//			//var err error
-//			// 加载配置文件
-//			config, err = conf.LoadFromPath(service.Path)
-//			if err != nil {
-//				return
-//			}
-//			//log.Printf("------------------handleClient message----------watcher.luid:%d , adapter.LUID:%d", watcher.luid, luid)
-//			//if watcher.luid == 0 {
-//
-//			peer := config.Peers[1]
-//
-//			logPeerAction("-----------------addRoute", peer)
-//
-//			estimatedRouteCount := 0
-//			//for _, peer := range config.Peers {
-//			estimatedRouteCount += len(peer.AllowedIPs)
-//			//}
-//			routes := make(map[winipcfg.RouteData]bool, estimatedRouteCount)
-//
-//			//foundDefault4 := false
-//			//foundDefault6 := false
-//			//for _, peer := range conf.Peers {
-//			for _, allowedip := range peer.AllowedIPs {
-//				route := winipcfg.RouteData{
-//					Destination: allowedip.Masked(),
-//					Metric:      0,
-//				}
-//				if allowedip.Addr().Is4() {
-//					if allowedip.Bits() == 0 {
-//						//foundDefault4 = true
-//					}
-//					route.NextHop = netip.IPv4Unspecified()
-//				} else if allowedip.Addr().Is6() {
-//					if allowedip.Bits() == 0 {
-//						//foundDefault6 = true
-//					}
-//					route.NextHop = netip.IPv6Unspecified()
-//				}
-//				routes[route] = true
-//			}
-//			//}
-//
-//			deduplicatedRoutes := make([]*winipcfg.RouteData, 0, len(routes))
-//			for route := range routes {
-//				r := route
-//				deduplicatedRoutes = append(deduplicatedRoutes, &r)
-//			}
-//
-//			err := luid.SetRoutesForFamily(windows.AF_INET, deduplicatedRoutes)
-//			if err != nil {
-//				log.Printf("------------------handleClient message SetRoutesForFamily--------------err: %w", err)
-//				return
-//			}
-//			err2 := luid.SetRoutesForFamily(windows.AF_INET6, deduplicatedRoutes)
-//			if err2 != nil {
-//				log.Printf("------------------handleClient message SetRoutesForFamily--------------err2: %w", err2)
-//				return
-//			}
-//			log.Printf("------------------handleClient message----------end")
-//
-//			//watcher.storedEvents = append(watcher.storedEvents, interfaceWatcherEvent{adapter.LUID(), windows.AF_INET})
-//			//watcher.storedEvents = append(watcher.storedEvents, interfaceWatcherEvent{adapter.LUID(), windows.AF_INET6})
-//			//	return
-//			//}
-//			//watcher.Configure(adapter, config, adapter.LUID())
-//
-//			//// 检查 LUID 对应的网络接口是否有效
-//			//if isInterfaceValid(adapter.LUID()) {
-//			//	log.Println("handleClient()  LUID 对应的网络接口是有效的")
-//			//} else {
-//			//	log.Println("handleClient()  LUID 对应的网络接口无效")
-//			//}
-//		}
-//
-//		//response := fmt.Sprintf("Received: %s", message)
-//		//var bytesWritten uint32
-//		//err = windows.WriteFile(pipe, []byte(response), &bytesWritten, nil)
-//		//if err != nil {
-//		//	log.Printf("Error writing to pipe: %v", err)
-//		//	break
-//		//}
-//	}
-//}
-
-// isInterfaceValid 检查 LUID 对应的网络接口是否有效
-func isInterfaceValid(luid winipcfg.LUID) bool {
-	iface, err := luid.Interface()
-	if err != nil {
-		log.Printf("Error retrieving interface for LUID: %v, Error: %v", luid, err)
-		return false
-	}
-
-	// 检查接口状态
-	if iface.OperStatus == winipcfg.IfOperStatusUp {
-		log.Printf("Interface for LUID: %v, InterfaceGUID: %v, Interface: %+v", luid, iface.InterfaceGUID, iface)
-		return true
-	}
-
-	log.Printf("Interface for LUID: %v is down, InterfaceGUID: %v", luid, iface.InterfaceGUID)
-	return false
-}
-
-func (service *tunnelService) startLogListener(adapter *driver.Adapter, luid winipcfg.LUID, watcher *InterfaceWatcher) {
-	ticker := time.NewTicker(time.Second)
-	cursor := ringlogger.CursorAll
-
-	for {
-		select {
-		case <-ticker.C:
-			var items []ringlogger.FollowLine
-			items, cursor = ringlogger.Global.FollowFromCursor(cursor)
-			if len(items) == 0 {
-				continue
-			}
-
-			for _, item := range items {
-				logLine := item.Line
-				if strings.Contains(logLine, "Sending handshake initiation to peer") ||
-					strings.Contains(logLine, "Receiving handshake response from peer") ||
-					strings.Contains(logLine, "Handshake for peer") {
-
-					//service.handleLogMessage(adapter,watcher, logLine)
-				}
-				//if strings.Contains(logLine, "need update route") {
-				//	service.handleLogMessage(adapter, luid, watcher, logLine)
-				//}
-				if logLine == "[MGR] need update route" {
-					service.handleLogMessage(adapter, luid, watcher, logLine)
-				}
-			}
-		}
-	}
-}
-
-func (service *tunnelService) handleLogMessage(adapter *driver.Adapter, luid winipcfg.LUID, watcher *InterfaceWatcher, logLine string) {
-	log.Printf("------------------Handling log message----------watcher.luid:%d , adapter.LUID:%d , %s", watcher.luid, luid, logLine)
-	//var config *conf.Config
-	//var err error
-	//// 加载配置文件
-	//config, err = conf.LoadFromPath(service.Path)
-	//if err != nil {
-	//	return
-	//}
-	////if watcher.luid == 0 {
-	//watcher.storedEvents = append(watcher.storedEvents, interfaceWatcherEvent{luid, windows.AF_INET})
-	////	return
-	////}
-	//watcher.Configure(adapter, config, luid)
-	//for _, peer := range config.Peers {
-	//	logPeerAction("-----------------apply", peer)
-	//}
-	// 这里可以添加处理逻辑，例如通知某个服务 存和取的不在同一个windows service下难怪掉不通
 }
 
 func logPeerAction(action string, peer conf.Peer) {

@@ -166,7 +166,7 @@ func (s *ManagerService) RuntimeConfig(tunnelName string) (*conf.Config, error) 
 		releaseDriverAdapter(tunnelName)
 		return nil, err
 	}
-	conf := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
+	conf, _ := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
 	driverAdapter.Unlock()
 	if s.elevatedToken == 0 {
 		conf.Redact()
@@ -354,12 +354,10 @@ func (s *ManagerService) GlobalState() TunnelState {
 
 func (s *ManagerService) Create(tunnelConfig *conf.Config) (*Tunnel, error) {
 	if s.elevatedToken == 0 {
-		log.Printf("-------Create() s.elevatedToken == 0------------")
 		return nil, windows.ERROR_ACCESS_DENIED
 	}
 	err := tunnelConfig.Save(true)
 	if err != nil {
-		log.Printf("-------Create() tunnelConfig.Save(true) err------------")
 		return nil, err
 	}
 	return &Tunnel{tunnelConfig.Name}, nil

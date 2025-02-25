@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package chat;
+
+// 添加 go_package 选项
+option go_package = "github.com/1060279812/wireguard/windows/tunnel/grpc/proto";
+
+service ChatService {
+  rpc Chat (stream ChatMessage) returns (stream ChatMessage);
+}
+
+message ChatMessage {
+  string json = 1;
+  string type = 2;
+}

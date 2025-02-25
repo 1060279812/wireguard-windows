@@ -9,8 +9,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/1060279812/wireguard/windows/conf"
-	"github.com/1060279812/wireguard/windows/manager/grpc"
-
 	//"github.com/1060279812/wireguard/windows/manager/grpc2"
 	"log"
 	"os"
@@ -34,7 +32,6 @@ type managerService struct {
 
 var (
 	pipeHandle windows.Handle
-	icpService *ManagerService
 )
 
 func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (svcSpecificEC bool, exitCode uint32) {
@@ -207,7 +204,7 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 				log.Printf("Unable to create pipe: %v", err)
 				return
 			}
-			icpService = IPCServerListen(ourReader, ourWriter, ourEvents, elevatedToken)
+			IPCServerListen(ourReader, ourWriter, ourEvents, elevatedToken)
 			theirLogMapping, err := ringlogger.Global.ExportInheritableMappingHandle()
 			if err != nil {
 				log.Printf("Unable to export inheritable mapping handle for logging: %v", err)
@@ -306,32 +303,6 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 		procsLock.Unlock()
 	}
 	windows.WTSFreeMemory(uintptr(unsafe.Pointer(sessionsPointer)))
-
-	//启动rpc服务器
-	callback := func(config *conf.Config) {
-		defer printPanicInfo()
-		log.Printf("-------callback------------")
-		if icpService == nil {
-			log.Printf("-------callback  icpService == nil------------")
-			return
-		}
-		log.Printf("-------callback  icpService.Create start------------")
-		_, err := icpService.Create(config)
-		if err != nil {
-			log.Printf("-------callback  icpService.Create err------------")
-			return
-		}
-		log.Printf("-------callback  Create  end------------")
-		log.Printf("-------callback  RuntimeConfig  starat------------")
-		_, err = icpService.RuntimeConfig(config.Name)
-		if err != nil {
-			log.Printf("-------callback  icpService.RuntimeConfig err------------")
-			return
-		}
-		log.Printf("-------callback  RuntimeConfig end------------")
-	}
-	go grpc.StartGrpcClient(callback)
-	log.Printf("-------StartGrpcServer------------")
 
 	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptSessionChange}
 
