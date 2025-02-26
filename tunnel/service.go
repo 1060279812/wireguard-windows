@@ -251,7 +251,7 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 		if err != nil {
 			return
 		}
-		conf, changeType := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
+		conf := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
 		//// 立即将配置同步到 wireguard-nt
 		if err := adapter.SetConfiguration(conf.ToDriverConfiguration()); err != nil {
 			return
@@ -261,11 +261,6 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 			log.Println(fmt.Errorf("%v: %w", services.ErrorDeviceBringUp, err))
 		}
 
-		if changeType == true {
-			grpcClient.SendMessage("response", "----------------已收到 allowedIPsChangeType = true消息--------------------")
-		} else {
-			grpcClient.SendMessage("response", "----------------已收到 allowedIPsChangeType = false消息--------------------")
-		}
 		//log.Printf("-------callback runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
 		//log.Printf("-------callback storedConfig peer size=%d\n", len(storedConfig.Peers))
 		//log.Printf("-------callback conf peer size=%d\n", len(conf.Peers))

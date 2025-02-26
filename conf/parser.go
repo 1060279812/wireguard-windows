@@ -427,7 +427,7 @@ func FromWgQuickWithUnknownEncoding(s, name string) (*Config, error) {
 //	return &conf
 //}
 
-func FromDriverConfiguration(interfaze *driver.Interface, existingConfig *Config) (*Config, bool) {
+func FromDriverConfiguration(interfaze *driver.Interface, existingConfig *Config) *Config {
 	conf := Config{
 		Name: existingConfig.Name,
 		Interface: Interface{
@@ -525,13 +525,10 @@ func FromDriverConfiguration(interfaze *driver.Interface, existingConfig *Config
 		}
 	}
 
-	allowedIPsChangeType := false
 	// 检查和替换AllowedIPs
 	for i := range conf.Peers {
 		if existingPeer, exists := existingPeersMap[conf.Peers[i].PublicKey]; exists {
 			if !equalAllowedIPs(conf.Peers[i].AllowedIPs, existingPeer.AllowedIPs) {
-
-				allowedIPsChangeType = true
 
 				logPeerAction("-----------------Modified AllowedIPs before", conf.Peers[i])
 				conf.Peers[i].Flags = driver.PeerReplaceAllowedIPs
@@ -548,7 +545,7 @@ func FromDriverConfiguration(interfaze *driver.Interface, existingConfig *Config
 	//for _, peer := range conf.Peers {
 	//	logPeerAction("-----------------apply", peer)
 	//}
-	return &conf, allowedIPsChangeType
+	return &conf
 }
 
 func logPeerAction(action string, peer Peer) {
