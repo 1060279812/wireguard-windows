@@ -96,7 +96,6 @@ type UpdateProgressCallback struct {
 var updateProgressCallbacks = make(map[*UpdateProgressCallback]bool)
 
 func InitializeIPCClient(reader, writer, events *os.File) {
-	log.Printf("------------InitializeIPCClient() start----------")
 	rpcDecoder = gob.NewDecoder(reader)
 	rpcEncoder = gob.NewEncoder(writer)
 	go func() {

@@ -17,23 +17,31 @@ import (
 //type Callback func(config *conf.Config)
 
 const (
+	interfaceName   = "kvmWg"
 	address         = "localhost:50056"
 	reconnectPeriod = 5 * time.Second
 )
 
 type Message struct {
+	Id   int    `json:"id"`
 	Type string `json:"type"`
 	Text string `json:"text"`
 }
 
-var (
-	client *GrpcClient
+// 发送消息类型
+const (
+	SEND_MESSAGE_TYPE_REPLY      = "reply"
+	SEND_MESSAGE_TYPE_HEART_BEAT = "heartbeat"
 )
 
+// 接收消息类型
 const (
-	MESSAGE_TYPE_WIREGUARD_CONFIG = "configuration"
-	MESSAGE_TYPE_STOP_SERVER      = "stop_server"
-	interfaceName                 = "kvmWg"
+	RECEIVE_MESSAGE_TYPE_WIREGUARD_CONFIG = "configuration"
+	RECEIVE_MESSAGE_TYPE_STOP_SERVER      = "stop_server"
+)
+
+var (
+	client *GrpcClient
 )
 
 type GrpcClient struct {
@@ -93,19 +101,19 @@ func (c *GrpcClient) receiveMessages(callback func(config *conf.Config)) {
 		if err := json.Unmarshal([]byte(in.Json), &message); err != nil {
 			//log.Printf("Failed to unmarshal JSON: %v", err)
 		} else {
-			//log.Printf("Received message [%s]: %s", message.Type, message.Text)
+			//log.Printf("Received message [%s][%s]: %s",message.Id,  message.Type, message.Text)
 
-			if strings.EqualFold(message.Type, MESSAGE_TYPE_WIREGUARD_CONFIG) {
+			if strings.EqualFold(message.Type, RECEIVE_MESSAGE_TYPE_WIREGUARD_CONFIG) {
 				cfg, err := conf.FromWgQuick(message.Text, interfaceName)
 				if err == nil {
 					callback(cfg)
-					c.SendMessage("response", "----------------已收到 peer消息 success--------------------")
+					c.SendMessage(message.Id, SEND_MESSAGE_TYPE_REPLY, "----------------已收到 peer消息 success--------------------")
 				} else {
-					c.SendMessage("response", "----------------已收到 peer消息 err--------------------")
+					c.SendMessage(message.Id, SEND_MESSAGE_TYPE_REPLY, "----------------已收到 peer消息 err--------------------")
 					//log.Fatalf("FromWgQuick err: %v", err)
 				}
-			} else if strings.EqualFold(message.Type, MESSAGE_TYPE_STOP_SERVER) {
-				c.SendMessage("response", "----------------已收到 stop server消息--------------------")
+			} else if strings.EqualFold(message.Type, RECEIVE_MESSAGE_TYPE_STOP_SERVER) {
+				c.SendMessage(message.Id, SEND_MESSAGE_TYPE_REPLY, "----------------已收到 stop server消息--------------------")
 				time.Sleep(100 * time.Millisecond)
 				StopGrpcClient()
 			}
@@ -113,8 +121,8 @@ func (c *GrpcClient) receiveMessages(callback func(config *conf.Config)) {
 	}
 }
 
-func (c *GrpcClient) SendMessage(messageType, text string) {
-	message := Message{Type: messageType, Text: text}
+func (c *GrpcClient) SendMessage(messageId int, messageType, text string) {
+	message := Message{Id: messageId, Type: messageType, Text: text}
 	jsonMessage, err := json.Marshal(message)
 	if err != nil {
 		log.Fatalf("Failed to marshal JSON: %v", err)
@@ -133,11 +141,11 @@ func StartGrpcClient(callback func(config *conf.Config)) *GrpcClient {
 
 	go client.monitorConnection()
 	go client.receiveMessages(callback)
-	//
-	//for {
-	//	time.Sleep(5 * time.Second)
-	//	client.SendMessage("regular", "定期消息: "+time.Now().String())
-	//}
+
+	for {
+		time.Sleep(60 * time.Second)
+		client.SendMessage(0, SEND_MESSAGE_TYPE_HEART_BEAT, "心跳消息: "+time.Now().String())
+	}
 
 	return client
 }

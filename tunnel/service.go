@@ -260,13 +260,12 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 		if err != nil {
 			log.Println(fmt.Errorf("%v: %w", services.ErrorDeviceBringUp, err))
 		}
-
 		//log.Printf("-------callback runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
 		//log.Printf("-------callback storedConfig peer size=%d\n", len(storedConfig.Peers))
 		//log.Printf("-------callback conf peer size=%d\n", len(conf.Peers))
 		//log.Printf("-------callback  end------------")
 	}
-	grpcClient = grpc.StartGrpcClient(callback)
+	go grpc.StartGrpcClient(callback)
 
 	log.Printf("-------StartGrpcServer------------")
 
