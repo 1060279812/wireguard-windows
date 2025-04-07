@@ -275,7 +275,7 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Stop, svc.Shutdown:
-				go grpc.StopGrpcClient()
+				go grpc.StopGrpcClient(true)
 				log.Printf("------------------ tunnel service Stop.........................")
 				return
 			case svc.Interrogate:

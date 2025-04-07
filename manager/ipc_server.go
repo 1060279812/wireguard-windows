@@ -166,13 +166,13 @@ func (s *ManagerService) RuntimeConfig(tunnelName string) (*conf.Config, error) 
 		releaseDriverAdapter(tunnelName)
 		return nil, err
 	}
-	conf, _ := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
+	driverConf := conf.FromDriverConfiguration(runtimeConfig, storedConfig)
 	driverAdapter.Unlock()
 	if s.elevatedToken == 0 {
-		conf.Redact()
+		driverConf.Redact()
 	}
 	//// 立即将配置同步到 wireguard-nt
-	if err := driverAdapter.SetConfiguration(conf.ToDriverConfiguration()); err != nil {
+	if err := driverAdapter.SetConfiguration(driverConf.ToDriverConfiguration()); err != nil {
 		return nil, err
 	}
 	err = driverAdapter.SetAdapterState(driver.AdapterStateUp)
@@ -181,14 +181,14 @@ func (s *ManagerService) RuntimeConfig(tunnelName string) (*conf.Config, error) 
 	}
 	log.Printf("RuntimeConfig() runtimeConfig peer size=%d\n", runtimeConfig.PeerCount)
 	log.Printf("RuntimeConfig() storedConfig peer size=%d\n", len(storedConfig.Peers))
-	log.Printf("RuntimeConfig() conf peer size=%d\n", len(conf.Peers))
+	log.Printf("RuntimeConfig() conf peer size=%d\n", len(driverConf.Peers))
 	//log.Printf("RuntimeConfig() driverAdapter luid=%d\n", driverAdapter.LUID())
 
 	//if int(runtimeConfig.PeerCount) != len(conf.Peers) {
 	//time.Sleep(5 * time.Second)
 	//sendMessageForPipe("set route")
 	//}
-	return conf, nil
+	return driverConf, nil
 }
 
 func (s *ManagerService) UpdateConfig(tunnelName string, storedConfig *conf.Config) (*conf.Config, error) {

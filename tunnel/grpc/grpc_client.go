@@ -32,6 +32,7 @@ type Message struct {
 const (
 	SEND_MESSAGE_TYPE_REPLY      = "reply"
 	SEND_MESSAGE_TYPE_HEART_BEAT = "heartbeat"
+	SEND_MESSAGE_TYPE_OTHER      = "other"
 )
 
 // 接收消息类型
@@ -95,11 +96,13 @@ func (c *GrpcClient) receiveMessages(callback func(config *conf.Config)) {
 	for {
 		in, err := c.stream.Recv()
 		if err != nil {
+			client.SendMessage(0, SEND_MESSAGE_TYPE_OTHER, "Failed to receive a message: "+time.Now().String())
 			log.Fatalf("Failed to receive a message: %v", err)
 		}
 		var message Message
 		if err := json.Unmarshal([]byte(in.Json), &message); err != nil {
 			//log.Printf("Failed to unmarshal JSON: %v", err)
+			client.SendMessage(0, SEND_MESSAGE_TYPE_OTHER, "Failed to unmarshal JSON: %v "+time.Now().String())
 		} else {
 			//log.Printf("Received message [%s][%s]: %s",message.Id,  message.Type, message.Text)
 
@@ -115,7 +118,7 @@ func (c *GrpcClient) receiveMessages(callback func(config *conf.Config)) {
 			} else if strings.EqualFold(message.Type, RECEIVE_MESSAGE_TYPE_STOP_SERVER) {
 				c.SendMessage(message.Id, SEND_MESSAGE_TYPE_REPLY, "----------------已收到 stop server消息--------------------")
 				time.Sleep(100 * time.Millisecond)
-				StopGrpcClient()
+				StopGrpcClient(false)
 			}
 		}
 	}
@@ -143,14 +146,14 @@ func StartGrpcClient(callback func(config *conf.Config)) *GrpcClient {
 	go client.receiveMessages(callback)
 
 	for {
-		time.Sleep(60 * time.Second)
+		time.Sleep(10 * time.Second)
 		client.SendMessage(0, SEND_MESSAGE_TYPE_HEART_BEAT, "心跳消息: "+time.Now().String())
 	}
 
 	return client
 }
 
-func StopGrpcClient() {
+func StopGrpcClient(activeClose bool) {
 	if client != nil {
 		client.isShuttingDown = true
 		if client.conn.GetState() == connectivity.Connecting {
@@ -158,6 +161,12 @@ func StopGrpcClient() {
 			//if err != nil {
 			//	return
 			//}
+			if activeClose {
+				client.SendMessage(0, SEND_MESSAGE_TYPE_OTHER, "主动 Close Grpc Client: "+time.Now().String())
+			} else {
+				client.SendMessage(0, SEND_MESSAGE_TYPE_OTHER, "被动 Close Grpc Client: "+time.Now().String())
+			}
+			time.Sleep(200 * time.Millisecond)
 			err := client.conn.Close()
 			if err != nil {
 				return
